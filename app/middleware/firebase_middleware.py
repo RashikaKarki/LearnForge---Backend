@@ -1,5 +1,4 @@
 from fastapi import Request
-# Ensure firebase is initialized (side-effect import)
 from firebase_admin import auth
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse

@@ -1,4 +1,5 @@
 """Middleware registration"""
+
 from fastapi import FastAPI
 
 from app.middleware.firebase_middleware import FirebaseAuthMiddleware

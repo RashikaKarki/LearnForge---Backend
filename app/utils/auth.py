@@ -12,16 +12,7 @@ async def verify_token(request: Request):
             detail="Missing Authorization header",
         )
 
-    try:
-        scheme, token = auth_header.split(" ")
-        if scheme.lower() != "bearer":
-            raise ValueError("Invalid auth scheme")
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Authorization header format",
-        )
-
+    _scheme, token = auth_header.split(" ")
     try:
         decoded_token = auth.verify_id_token(token)
         return decoded_token
