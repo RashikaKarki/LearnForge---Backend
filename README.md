@@ -58,3 +58,21 @@ By default, this starts the LearnForge backend service and initializes all AI ag
 * **Python** for backend logic
 * **Agent Development Kit (ADK)** for multi-agent orchestration
 * **Poetry** for dependency management and environment control
+
+## Testing
+
+To run the test suite locally:
+
+1. Install dev dependencies (pytest and httpx/testclient) into your environment.
+
+```bash
+poetry add pytest httpx
+```
+
+2. Run pytest from the project root:
+
+```bash
+pytest -q
+```
+
+The tests include `tests/test_firebase_middleware.py`, which mocks Firebase token verification and exercises the middleware.
