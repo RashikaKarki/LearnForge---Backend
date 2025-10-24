@@ -15,7 +15,7 @@ from app.core.set_routes import setup_routes
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan"""
-    await startup_handler()
+    await startup_handler(app)
     yield
 
 

@@ -1,7 +1,6 @@
 from google.adk.agents import SequentialAgent
 
-from ..mission_content_weaver.agent import \
-    root_agent as mission_content_weaver_agent
+from ..mission_content_weaver.agent import root_agent as mission_content_weaver_agent
 from ..mission_curator.agent import root_agent as mission_curator_agent
 
 root_agent = SequentialAgent(

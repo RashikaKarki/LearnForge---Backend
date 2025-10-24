@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends
-
-from app.utils.auth import verify_token
+from fastapi import APIRouter, Request
 
 router = APIRouter()
 
 
 @router.get("/profile")
-async def get_profile(user=Depends(verify_token)):
+async def get_profile(request: Request):
+    user = request.state.current_user
+
     return {
-        "uid": user["uid"], 
-        "email": user.get("email"), 
-        "name": user.get("name"), 
-        "picture": user.get("picture")}
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "picture": user.picture,
+    }
