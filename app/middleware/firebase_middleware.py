@@ -8,6 +8,9 @@ EXCLUDED_PATHS = {"/auth/verify_profile", "/docs", "/openapi.json"}
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip excluded routes
         if request.url.path in EXCLUDED_PATHS:
             return await call_next(request)

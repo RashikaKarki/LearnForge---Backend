@@ -74,5 +74,3 @@ poetry add pytest httpx
 ```bash
 pytest -q
 ```
-
-The tests include `tests/test_firebase_middleware.py`, which mocks Firebase token verification and exercises the middleware.

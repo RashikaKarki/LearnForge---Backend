@@ -5,10 +5,8 @@ from starlette.testclient import TestClient
 
 from app.middleware.firebase_middleware import FirebaseAuthMiddleware
 
-
 class DummyException(Exception):
     pass
-
 
 @pytest.fixture
 def app():
