@@ -6,9 +6,25 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException, status
 
-from app.models.checkpoint import CheckpointCreate, CheckpointUpdate
+from app.models.checkpoint import CheckpointCreate, CheckpointUpdate, QuizQuestion
 from app.services.checkpoint_service import CheckpointService
 from tests.mocks.firestore import FirestoreMocks
+
+
+@pytest.fixture
+def sample_quiz_question():
+    """Sample quiz question for testing."""
+    return QuizQuestion(
+        question="What is Python?",
+        options={
+            "a": "A programming language",
+            "b": "A type of snake",
+            "c": "A web framework",
+            "d": "An operating system",
+        },
+        right_option_key="a",
+        explanation="Python is a high-level, interpreted programming language.",
+    )
 
 
 @pytest.fixture
@@ -18,6 +34,22 @@ def valid_checkpoint_create_data():
         title="Introduction to Variables",
         content="Learn about Python variables and data types",
         order=1,
+        sources={"Python Docs": "https://docs.python.org"},
+    )
+
+
+@pytest.fixture
+def valid_checkpoint_create_with_quiz(sample_quiz_question):
+    """Test data for creating a checkpoint with quiz questions."""
+    return CheckpointCreate(
+        title="Python Basics",
+        content="Introduction to Python programming",
+        order=1,
+        sources={
+            "Python Docs": "https://docs.python.org",
+            "Real Python": "https://realpython.com",
+        },
+        quiz_questions=[sample_quiz_question],
     )
 
 
@@ -30,6 +62,8 @@ def existing_checkpoint():
         "title": "Introduction to Variables",
         "content": "Learn about Python variables and data types",
         "order": 1,
+        "sources": {"Python Docs": "https://docs.python.org"},
+        "quiz_questions": [],
         "created_at": datetime(2025, 1, 1, 12, 0, 0),
     }
 
@@ -70,6 +104,31 @@ def test_create_checkpoint_mission_not_found_raises_404(valid_checkpoint_create_
         service.create_checkpoint("missing", valid_checkpoint_create_data)
 
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_create_checkpoint_with_quiz_questions(valid_checkpoint_create_with_quiz):
+    """Should create checkpoint with quiz questions."""
+    missions_collection = MagicMock()
+    checkpoints_collection = FirestoreMocks.collection_empty()
+
+    # Mock mission exists
+    mission_doc = FirestoreMocks.document_exists("mission123", {"id": "mission123"})
+    missions_collection.document.return_value.get.return_value = mission_doc
+    missions_collection.document.return_value.collection.return_value = checkpoints_collection
+
+    db = MagicMock()
+    db.collection.return_value = missions_collection
+    service = CheckpointService(db)
+
+    checkpoint = service.create_checkpoint("mission123", valid_checkpoint_create_with_quiz)
+
+    assert checkpoint.title == valid_checkpoint_create_with_quiz.title
+    assert len(checkpoint.quiz_questions) == 1
+    assert checkpoint.quiz_questions[0].question == "What is Python?"
+    assert len(checkpoint.sources) == 2
+    assert "Python Docs" in checkpoint.sources
+    assert "Real Python" in checkpoint.sources
+    checkpoints_collection.document().set.assert_called_once()
 
 
 def test_get_checkpoint_found_returns_checkpoint(existing_checkpoint):
