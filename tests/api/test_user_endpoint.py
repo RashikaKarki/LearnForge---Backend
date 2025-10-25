@@ -17,15 +17,15 @@ def test_get_profile_success_returns_200():
             id="user123",
             firebase_uid="firebase_uid_123",
             name="Test User",
-            email="test@example.com"
+            email="test@example.com",
         )
         return await call_next(request)
 
     app.include_router(router, prefix="/user")
     client = TestClient(app)
-    
+
     response = client.get("/user/profile")
-    
+
     assert response.status_code == 200
 
 
@@ -39,15 +39,15 @@ def test_get_profile_returns_user_id():
             id="user123",
             firebase_uid="firebase_uid_123",
             name="Test User",
-            email="test@example.com"
+            email="test@example.com",
         )
         return await call_next(request)
 
     app.include_router(router, prefix="/user")
     client = TestClient(app)
-    
+
     response = client.get("/user/profile")
-    
+
     assert response.json()["id"] == "user123"
 
 
@@ -61,15 +61,15 @@ def test_get_profile_returns_user_email():
             id="user123",
             firebase_uid="firebase_uid_123",
             name="Test User",
-            email="test@example.com"
+            email="test@example.com",
         )
         return await call_next(request)
 
     app.include_router(router, prefix="/user")
     client = TestClient(app)
-    
+
     response = client.get("/user/profile")
-    
+
     assert response.json()["email"] == "test@example.com"
 
 
@@ -83,15 +83,15 @@ def test_get_profile_returns_user_name():
             id="user123",
             firebase_uid="firebase_uid_123",
             name="Test User",
-            email="test@example.com"
+            email="test@example.com",
         )
         return await call_next(request)
 
     app.include_router(router, prefix="/user")
     client = TestClient(app)
-    
+
     response = client.get("/user/profile")
-    
+
     assert response.json()["name"] == "Test User"
 
 
@@ -105,13 +105,13 @@ def test_get_profile_includes_picture_field():
             id="user123",
             firebase_uid="firebase_uid_123",
             name="Test User",
-            email="test@example.com"
+            email="test@example.com",
         )
         return await call_next(request)
 
     app.include_router(router, prefix="/user")
     client = TestClient(app)
-    
+
     response = client.get("/user/profile")
-    
+
     assert "picture" in response.json()

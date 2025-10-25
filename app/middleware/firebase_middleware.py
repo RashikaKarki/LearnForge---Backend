@@ -8,10 +8,10 @@ from firebase_admin.auth import (
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from app.models.user import User
+from app.models.user import User, UserCreate
 from app.services.user_service import UserService
 
-EXCLUDED_PATHS = {"/auth/verify_profile", "/docs", "/openapi.json"}
+EXCLUDED_PATHS = {"/auth/verify_profile", "/docs", "/openapi.json", "/api/health"}
 
 
 class FirebaseAuthMiddleware(BaseHTTPMiddleware):
@@ -50,15 +50,15 @@ class FirebaseAuthMiddleware(BaseHTTPMiddleware):
 
         try:
             decoded_token = auth.verify_id_token(token)
-            user_object = {
-                "firebase_uid": decoded_token["uid"],
-                "email": decoded_token.get("email"),
-                "name": decoded_token.get("name"),
-                "picture": decoded_token.get("picture"),
-            }
+            user_create_object = UserCreate(
+                firebase_uid=decoded_token["uid"],
+                email=decoded_token.get("email"),
+                name=decoded_token.get("name"),
+                picture=decoded_token.get("picture"),
+            )
 
             user_service = UserService(request.app.state.db)
-            user: User = user_service.get_or_create_user(user_object)
+            user: User = user_service.get_or_create_user(user_create_object)
 
             request.state.current_user = user
         except ExpiredIdTokenError:

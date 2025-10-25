@@ -10,5 +10,18 @@ class User(BaseModel):
     name: str
     email: EmailStr
     picture: Optional[AnyUrl] = None
-    updated_at: datetime = Field(default_factory=datetime.today)
     created_at: datetime = Field(default_factory=datetime.today)
+    updated_at: datetime = Field(default_factory=datetime.today)
+
+
+class UserCreate(BaseModel):
+    firebase_uid: str
+    name: str
+    email: EmailStr
+    picture: Optional[AnyUrl] = None
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    picture: Optional[AnyUrl] = None

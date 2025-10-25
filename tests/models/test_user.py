@@ -16,7 +16,7 @@ def test_user_model_valid_creation():
         name="Test User",
         email="test@example.com",
     )
-    
+
     assert user.id == "user123"
     assert user.firebase_uid == "firebase_uid_123"
     assert user.name == "Test User"
@@ -31,7 +31,7 @@ def test_user_model_optional_picture_defaults_to_none():
         name="Test User",
         email="test@example.com",
     )
-    
+
     assert user.picture is None
 
 
@@ -43,18 +43,21 @@ def test_user_model_timestamps_auto_generated():
         name="Test User",
         email="test@example.com",
     )
-    
+
     assert isinstance(user.created_at, datetime)
     assert isinstance(user.updated_at, datetime)
 
 
-@pytest.mark.parametrize("email", [
-    "not-an-email",
-    "missing-at-sign.com",
-    "@no-local-part.com",
-    "no-domain@",
-    "",
-])
+@pytest.mark.parametrize(
+    "email",
+    [
+        "not-an-email",
+        "missing-at-sign.com",
+        "@no-local-part.com",
+        "no-domain@",
+        "",
+    ],
+)
 def test_user_model_invalid_email_raises(email):
     """Should raise ValidationError for invalid email formats."""
     with pytest.raises(ValidationError):
@@ -66,10 +69,13 @@ def test_user_model_invalid_email_raises(email):
         )
 
 
-@pytest.mark.parametrize("picture", [
-    "not-a-url",
-    "missing-protocol.com",
-])
+@pytest.mark.parametrize(
+    "picture",
+    [
+        "not-a-url",
+        "missing-protocol.com",
+    ],
+)
 def test_user_model_invalid_picture_raises(picture):
     """Should raise ValidationError for invalid picture URLs."""
     with pytest.raises(ValidationError):
@@ -82,12 +88,15 @@ def test_user_model_invalid_picture_raises(picture):
         )
 
 
-@pytest.mark.parametrize("missing_field,data", [
-    ("id", {"firebase_uid": "uid", "name": "Name", "email": "test@example.com"}),
-    ("firebase_uid", {"id": "id123", "name": "Name", "email": "test@example.com"}),
-    ("name", {"id": "id123", "firebase_uid": "uid", "email": "test@example.com"}),
-    ("email", {"id": "id123", "firebase_uid": "uid", "name": "Name"}),
-])
+@pytest.mark.parametrize(
+    "missing_field,data",
+    [
+        ("id", {"firebase_uid": "uid", "name": "Name", "email": "test@example.com"}),
+        ("firebase_uid", {"id": "id123", "name": "Name", "email": "test@example.com"}),
+        ("name", {"id": "id123", "firebase_uid": "uid", "email": "test@example.com"}),
+        ("email", {"id": "id123", "firebase_uid": "uid", "name": "Name"}),
+    ],
+)
 def test_user_model_missing_required_field_raises(missing_field, data):
     """Should raise ValidationError when required field is missing."""
     with pytest.raises(ValidationError):

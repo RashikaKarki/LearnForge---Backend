@@ -8,7 +8,7 @@ load_dotenv()
 
 def initialize_firestore():
     """Initializes Firestore client"""
-    DATABASE_NAME = os.getenv("FIRESTORE_DATABASE_NAME", "(default)")
+    database_id = os.getenv("FIRESTORE_DATABASE_ID", "(default)")
 
-    db = Client(database=DATABASE_NAME)
+    db = Client(database=database_id)
     return db
