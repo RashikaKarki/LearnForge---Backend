@@ -27,37 +27,25 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Enable required APIs
+      - name: Configure Docker for GCR
         run: |
-          gcloud services enable artifactregistry.googleapis.com
-          gcloud services enable run.googleapis.com
-
-      - name: Create Artifact Registry repository
-        run: |
-          gcloud artifacts repositories create ${{ env.CLOUD_RUN_SERVICE }} \
-            --repository-format=docker \
-            --location=${{ env.GCP_REGION }} \
-            --project=${{ secrets.GCP_PROJECT_ID }} || echo "Repository already exists"
-
-      - name: Configure Docker for Artifact Registry
-        run: |
-          gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev
+          gcloud auth configure-docker
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }} .
-          docker tag ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }} \
-                     ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}/${{ env.CLOUD_RUN_SERVICE }}:latest
+          docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }} .
+          docker tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }} \
+                     gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}:latest
 
-      - name: Push Docker image to Artifact Registry
+      - name: Push Docker image to GCR
         run: |
-          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }}
-          docker push ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}/${{ env.CLOUD_RUN_SERVICE }}:latest
+          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }}
+          docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}:latest
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ env.CLOUD_RUN_SERVICE }} \
-            --image ${{ env.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }} \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/${{ env.CLOUD_RUN_SERVICE }}:${{ github.sha }} \
             --platform managed \
             --region ${{ env.GCP_REGION }} \
             --project ${{ secrets.GCP_PROJECT_ID }} \
