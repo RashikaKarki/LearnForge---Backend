@@ -65,13 +65,12 @@ make docker-test     # Test Docker build locally
 make deploy          # Deploy to Google Cloud Run
 ```
 
-> **Note**: Deployment requires `.env` file with GCP configuration. See [CD_SETUP_GUIDE.md](CD_SETUP_GUIDE.md) for setup instructions.
+> **Note**: Deployment requires `.env` file with GCP configuration and proper Google Cloud service account credentials.
 
 ## API Documentation
 
 Once running, visit:
 - **Swagger UI**: http://localhost:8080/docs
-- **ReDoc**: http://localhost:8080/redoc
 - **Health Check**: http://localhost:8080/api/health
 
 ## CI/CD Pipeline
@@ -94,12 +93,7 @@ Once running, visit:
    - `ALLOW_ORIGINS`
    - `GCP_SA_KEY`
 
-2. Run setup script:
-   ```bash
-   ./setup-cd.sh
-   ```
-
-3. Push to `main` to deploy
+2. Push to `main` to deploy
 
 
 ## Tech Stack
