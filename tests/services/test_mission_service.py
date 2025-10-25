@@ -16,6 +16,7 @@ def valid_mission_create_data():
     """Test data for creating a mission."""
     return MissionCreate(
         title="Learn Python Basics",
+        short_description="An introductory course on Python",
         description="A comprehensive guide to Python fundamentals",
         creator_id="user123",
         is_public=True,
@@ -28,6 +29,7 @@ def existing_mission():
     return {
         "id": "mission123",
         "title": "Learn Python Basics",
+        "short_description": "An introductory course on Python",
         "description": "A comprehensive guide to Python fundamentals",
         "creator_id": "user123",
         "is_public": True,
@@ -193,6 +195,7 @@ def test_get_missions_by_creator_and_visibility():
         {
             "id": "mission123",
             "title": "Public Mission",
+            "short_description": "Public Mission",
             "description": "Test",
             "creator_id": "user123",
             "is_public": True,
