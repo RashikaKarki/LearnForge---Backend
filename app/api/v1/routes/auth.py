@@ -57,9 +57,13 @@ async def create_session(request: CreateSessionRequest, response: Response):
         return SessionResponse(message="Session created successfully", uid=decoded_token["uid"])
 
     except auth.InvalidIdTokenError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token") from e
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token"
+        ) from e
     except auth.ExpiredIdTokenError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="ID token has expired") from e
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="ID token has expired"
+        ) from e
     except Exception as e:
         print("I am here")
         print(e)
@@ -118,7 +122,9 @@ async def refresh_session(request: Request, response: Response):
         return SessionResponse(message="Session refreshed successfully", uid=decoded_claims["uid"])
 
     except auth.ExpiredSessionCookieError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired") from e
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired"
+        ) from e
     except auth.RevokedSessionCookieError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked"
