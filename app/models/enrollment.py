@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -22,5 +21,5 @@ class EnrollmentCreate(BaseModel):
 
 
 class EnrollmentUpdate(BaseModel):
-    progress: Optional[float] = Field(None, ge=0.0, le=100.0)
-    last_accessed_at: Optional[datetime] = None
+    progress: float | None = Field(None, ge=0.0, le=100.0)
+    last_accessed_at: datetime | None = None
