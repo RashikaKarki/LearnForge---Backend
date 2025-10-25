@@ -86,14 +86,25 @@ Once running, visit:
 
 ### Setup GitHub Deployment
 
-1. Add GitHub secrets:
-   - `GCP_PROJECT_ID`
-   - `FIREBASE_PROJECT_ID`
-   - `GOOGLE_API_KEY`
-   - `ALLOW_ORIGINS`
-   - `GCP_SA_KEY`
+1. Add GitHub secrets (Settings → Secrets and variables → Actions):
+   
+   **GCP Configuration:**
+   - `GCP_PROJECT_ID` - Your Google Cloud project ID
+   - `GCP_REGION` - The GCP region for deployment (e.g., us-central1)
+   - `GCP_SA_KEY` - Service account JSON key with Cloud Run and Artifact Registry permissions
+   
+   **Cloud Run & Artifact Registry:**
+   - `CLOUD_RUN_SERVICE` - Name of your Cloud Run service
+   - `ARTIFACT_REGISTRY_REPO` - Name of your Artifact Registry repository
+   
+   **Application Configuration:**
+   - `FIREBASE_PROJECT_ID` - Your Firebase project ID
+   - `GOOGLE_API_KEY` - Google API key for Gemini/GenAI
+   - `ALLOW_ORIGINS` - CORS allowed origins (comma-separated)
 
-2. Push to `main` to deploy
+2. Ensure the Artifact Registry repository exists in GCP (must be created manually)
+
+3. Push to `main` to deploy
 
 
 ## Tech Stack
