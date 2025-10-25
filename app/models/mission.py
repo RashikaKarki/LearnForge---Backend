@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class Mission(BaseModel):
     id: str
     title: str
+    short_description: str
     description: str
     creator_id: str = Field(..., description="User ID of the mission creator")
     skills: list[str] | None = Field(
@@ -19,6 +20,7 @@ class Mission(BaseModel):
 class MissionCreate(BaseModel):
     title: str
     description: str
+    short_description: str
     creator_id: str
     is_public: bool = True
     skills: list[str] | None = None

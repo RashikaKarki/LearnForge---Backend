@@ -13,6 +13,7 @@ def test_mission_model_valid_creation():
     mission = Mission(
         id="mission123",
         title="Learn Python Basics",
+        short_description="An introductory course on Python",
         description="A comprehensive guide to Python fundamentals",
         creator_id="user123",
         is_public=True,
@@ -21,6 +22,7 @@ def test_mission_model_valid_creation():
 
     assert mission.id == "mission123"
     assert mission.title == "Learn Python Basics"
+    assert mission.short_description == "An introductory course on Python"
     assert mission.description == "A comprehensive guide to Python fundamentals"
     assert mission.creator_id == "user123"
     assert mission.is_public is True
@@ -32,6 +34,7 @@ def test_mission_model_skills_defaults_to_empty_list():
     mission = Mission(
         id="mission123",
         title="Learn Python",
+        short_description="An introductory course on Python",
         description="Python guide",
         creator_id="user123",
     )
@@ -44,6 +47,7 @@ def test_mission_model_is_public_defaults_to_true():
     mission = Mission(
         id="mission123",
         title="Learn Python",
+        short_description="An introductory course on Python",
         description="Python guide",
         creator_id="user123",
     )
@@ -56,6 +60,7 @@ def test_mission_model_timestamps_auto_generated():
     mission = Mission(
         id="mission123",
         title="Learn Python",
+        short_description="An introductory course on Python",
         description="Python guide",
         creator_id="user123",
     )
@@ -67,10 +72,46 @@ def test_mission_model_timestamps_auto_generated():
 @pytest.mark.parametrize(
     "missing_field,data",
     [
-        ("id", {"title": "Title", "description": "Desc", "creator_id": "user123"}),
-        ("title", {"id": "mission123", "description": "Desc", "creator_id": "user123"}),
-        ("description", {"id": "mission123", "title": "Title", "creator_id": "user123"}),
-        ("creator_id", {"id": "mission123", "title": "Title", "description": "Desc"}),
+        (
+            "id",
+            {
+                "title": "Title",
+                "short_description": "Short Desc",
+                "description": "Desc",
+                "creator_id": "user123",
+            },
+        ),
+        (
+            "title",
+            {
+                "id": "mission123",
+                "short_description": "Short Desc",
+                "description": "Desc",
+                "creator_id": "user123",
+            },
+        ),
+        (
+            "short_description",
+            {"id": "mission123", "title": "Title", "description": "Desc", "creator_id": "user123"},
+        ),
+        (
+            "description",
+            {
+                "id": "mission123",
+                "title": "Title",
+                "short_description": "Short Desc",
+                "creator_id": "user123",
+            },
+        ),
+        (
+            "creator_id",
+            {
+                "id": "mission123",
+                "title": "Title",
+                "short_description": "Short Desc",
+                "description": "Desc",
+            },
+        ),
     ],
 )
 def test_mission_model_missing_required_field_raises(missing_field, data):
@@ -83,12 +124,14 @@ def test_mission_create_valid():
     """Should create MissionCreate with required fields."""
     mission_create = MissionCreate(
         title="Learn Python",
+        short_description="An introductory course on Python",
         description="Python guide",
         creator_id="user123",
         skills=["Python", "Programming"],
     )
 
     assert mission_create.title == "Learn Python"
+    assert mission_create.short_description == "An introductory course on Python"
     assert mission_create.description == "Python guide"
     assert mission_create.creator_id == "user123"
     assert mission_create.is_public is True
@@ -99,6 +142,7 @@ def test_mission_create_is_public_can_be_false():
     """Should allow is_public to be set to False."""
     mission_create = MissionCreate(
         title="Private Mission",
+        short_description="A private guide",
         description="Private guide",
         creator_id="user123",
         is_public=False,
@@ -111,9 +155,19 @@ def test_mission_create_is_public_can_be_false():
 @pytest.mark.parametrize(
     "missing_field,data",
     [
-        ("title", {"description": "Desc", "creator_id": "user123"}),
-        ("description", {"title": "Title", "creator_id": "user123"}),
-        ("creator_id", {"title": "Title", "description": "Desc"}),
+        (
+            "title",
+            {"description": "Desc", "creator_id": "user123", "short_description": "Short Desc"},
+        ),
+        (
+            "description",
+            {"title": "Title", "creator_id": "user123", "short_description": "Short Desc"},
+        ),
+        (
+            "creator_id",
+            {"title": "Title", "description": "Desc", "short_description": "Short Desc"},
+        ),
+        ("short_description", {"title": "Title", "description": "Desc", "creator_id": "user123"}),
     ],
 )
 def test_mission_create_missing_required_field_raises(missing_field, data):
@@ -162,6 +216,7 @@ def test_mission_is_public_accepts_boolean(is_public_value):
     mission = Mission(
         id="mission123",
         title="Test Mission",
+        short_description="Test Mission",
         description="Test",
         creator_id="user123",
         is_public=is_public_value,
