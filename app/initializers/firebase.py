@@ -17,7 +17,7 @@ def initialize_firebase():
         # Load credentials
         if os.path.exists(cred_path):
             # It's a file path - load the JSON to get project_id from the credential itself
-            with open(cred_path, "r") as f:
+            with open(cred_path) as f:
                 cred_dict = json.load(f)
             cred = credentials.Certificate(cred_dict)
 
