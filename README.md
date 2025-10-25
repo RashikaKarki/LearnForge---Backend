@@ -1,5 +1,8 @@
 # LearnForge: A Personalized AI Learning Architect
 
+
+[![CI - Lint and Test](https://github.com/RashikaKarki/LearnForge---Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/RashikaKarki/LearnForge---Backend/actions/workflows/ci.yml)
+
 ## Introduction
 
 **LearnForge** is an AI-powered educational backend that designs and orchestrates deeply personalized learning experiences. Built with the **Agent Development Kit (ADK)** and powered by a **multi-agent architecture**, LearnForge adapts to each learner’s goals, existing knowledge, and preferred depth of understanding.

@@ -61,9 +61,7 @@ def test_invalid_token(mock_verify, app: FastAPI):
 
 @patch("firebase_admin.auth.verify_id_token")
 @patch("app.middleware.firebase_middleware.UserService")
-def test_valid_token_sets_request_state_user(
-    mock_user_service, mock_verify, app: FastAPI
-):
+def test_valid_token_sets_request_state_user(mock_user_service, mock_verify, app: FastAPI):
     mock_verify.return_value = {
         "uid": "user123",
         "email": "user@example.com",

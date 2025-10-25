@@ -13,6 +13,4 @@ cred = credentials.Certificate(cred_path)
 def initialize_firebase():
     """Initializes Firebase app if not already initialized"""
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(
-            cred, {"projectId": os.getenv("FIREBASE_PROJECT_ID")}
-        )
+        firebase_admin.initialize_app(cred, {"projectId": os.getenv("FIREBASE_PROJECT_ID")})

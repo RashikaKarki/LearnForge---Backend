@@ -1,5 +1,3 @@
-from typing import List
-
 from google.adk.agents.llm_agent import LlmAgent
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,7 +8,7 @@ class MissionOutline(BaseModel):
     course_name: str = Field(..., description="Final topic / course name")
     level: str = Field(..., description="Beginner, Intermediate, Advanced")
     course_summary: str = Field(..., description="Short summary of the course")
-    topics_to_cover: List[str] = Field(
+    topics_to_cover: list[str] = Field(
         ...,
         description="List of all possible topics that need to be covered including prerequisites",
     )
@@ -18,7 +16,7 @@ class MissionOutline(BaseModel):
         ...,
         description="3-4 sentence explanation of user's learning goal and what they aim to achieve",
     )
-    byte_size_checkpoints: List[str] = Field(
+    byte_size_checkpoints: list[str] = Field(
         ...,
         description="List of suggested 4-6 byte-size checkpoints(chapters) including prerequisites sorted for the user in this course",
     )

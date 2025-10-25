@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from google.adk.agents import BaseAgent, LlmAgent
 from google.adk.agents.invocation_context import InvocationContext
@@ -162,9 +162,7 @@ class ContentWeaverCustomAgent(BaseAgent):
             sub_agents=sub_agents_list,
         )
 
-    async def _run_async_impl(
-        self, ctx: InvocationContext
-    ) -> AsyncGenerator[Event, None]:
+    async def _run_async_impl(self, ctx: InvocationContext) -> AsyncGenerator[Event, None]:
         missions_outline = ctx.session.state.get("missions_outline", {})
         byte_size_checkpoints = missions_outline.get("byte_size_checkpoints", [])
 
@@ -190,9 +188,7 @@ class ContentWeaverCustomAgent(BaseAgent):
 
             formatted_content = ctx.session.state.get("formatted_content")
             if formatted_content:
-                ctx.session.state[f"checkpoint_{checkpoint_index + 1}_content"] = (
-                    formatted_content
-                )
+                ctx.session.state[f"checkpoint_{checkpoint_index + 1}_content"] = formatted_content
 
         ctx.session.state["content_generation_complete"] = True
 

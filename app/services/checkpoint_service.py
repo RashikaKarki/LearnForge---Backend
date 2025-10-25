@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 
 from fastapi import HTTPException, status
 
@@ -52,7 +51,7 @@ class CheckpointService:
         return Checkpoint(**doc.to_dict())
 
     @handle_firestore_exceptions
-    def get_all_checkpoints(self, mission_id: str) -> List[Checkpoint]:
+    def get_all_checkpoints(self, mission_id: str) -> list[Checkpoint]:
         """Get all checkpoints for a mission, ordered by 'order' field."""
         checkpoints_col = self._get_checkpoints_collection(mission_id)
         docs = checkpoints_col.order_by("order").get()
@@ -95,9 +94,7 @@ class CheckpointService:
         return {"message": f"Checkpoint '{checkpoint_id}' deleted successfully."}
 
     @handle_firestore_exceptions
-    def reorder_checkpoints(
-        self, mission_id: str, checkpoint_orders: dict
-    ) -> List[Checkpoint]:
+    def reorder_checkpoints(self, mission_id: str, checkpoint_orders: dict) -> list[Checkpoint]:
         """
         Update the order of multiple checkpoints.
 

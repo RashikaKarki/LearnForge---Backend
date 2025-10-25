@@ -1,10 +1,6 @@
 from fastapi import Request
 from firebase_admin import auth
-from firebase_admin.auth import (
-    ExpiredIdTokenError,
-    InvalidIdTokenError,
-    RevokedIdTokenError,
-)
+from firebase_admin.auth import ExpiredIdTokenError, InvalidIdTokenError, RevokedIdTokenError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 

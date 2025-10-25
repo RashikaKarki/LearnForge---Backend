@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
@@ -9,7 +8,7 @@ class User(BaseModel):
     firebase_uid: str
     name: str
     email: EmailStr
-    picture: Optional[AnyUrl] = None
+    picture: AnyUrl | None = None
     created_at: datetime = Field(default_factory=datetime.today)
     updated_at: datetime = Field(default_factory=datetime.today)
 
@@ -18,10 +17,10 @@ class UserCreate(BaseModel):
     firebase_uid: str
     name: str
     email: EmailStr
-    picture: Optional[AnyUrl] = None
+    picture: AnyUrl | None = None
 
 
 class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    picture: Optional[AnyUrl] = None
+    name: str | None = None
+    email: EmailStr | None = None
+    picture: AnyUrl | None = None
