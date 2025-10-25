@@ -1,3 +1,4 @@
+import json
 import os
 
 import firebase_admin
@@ -6,11 +7,22 @@ from firebase_admin import credentials
 
 load_dotenv()
 
-cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "serviceAccountKey.json")
-cred = credentials.Certificate(cred_path)
-
 
 def initialize_firebase():
     """Initializes Firebase app if not already initialized"""
     if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred, {"projectId": os.getenv("FIREBASE_PROJECT_ID")})
+        cred_value = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "firebase_key.json")
+
+        # Determine if it's a file path or JSON content
+        if os.path.exists(cred_value):
+            # It's a file path - use it directly
+            cred = credentials.Certificate(cred_value)
+        else:
+            # It's JSON content - parse and use directly
+            try:
+                cred_dict = json.loads(cred_value)
+                cred = credentials.Certificate(cred_dict)
+            except json.JSONDecodeError:
+                raise
+
+        firebase_admin.initialize_app(cred)
