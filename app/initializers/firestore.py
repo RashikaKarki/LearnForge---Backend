@@ -2,6 +2,7 @@ import json
 import os
 
 from dotenv import load_dotenv
+from fastapi import Request
 from google.cloud.firestore import Client
 from google.oauth2 import service_account
 
@@ -37,3 +38,8 @@ def initialize_firestore():
         db = Client(database=database_id)
 
     return db
+
+
+def get_db(request: Request):
+    """FastAPI dependency to get Firestore database from app state"""
+    return request.app.state.db

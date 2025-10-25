@@ -73,6 +73,13 @@ Once running, visit:
 - **Swagger UI**: http://localhost:8080/docs
 - **Health Check**: http://localhost:8080/api/health
 
+### WebSocket Endpoints
+
+- **Mission Commander**: `ws://localhost:8080/api/v1/mission-commander/ws`
+  - Real-time AI agent conversation for creating personalized learning missions
+  - See [WebSocket Quick Start](docs/WEBSOCKET_QUICK_START.md) for frontend integration
+  - Full API reference: [Mission Commander WebSocket API](docs/MISSION_COMMANDER_WEBSOCKET_API.md)
+
 ## CI/CD Pipeline
 
 ### Automated Workflows
