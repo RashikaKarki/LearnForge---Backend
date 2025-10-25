@@ -12,6 +12,7 @@ def initialize_firebase():
     """Initializes Firebase app if not already initialized"""
     if not firebase_admin._apps:
         cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "serviceAccountKey.json")
+        firebase_project_id = os.getenv("FIREBASE_PROJECT_ID")
 
         if os.path.exists(cred_path):
             with open(cred_path) as f:
