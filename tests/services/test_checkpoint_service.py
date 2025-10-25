@@ -17,7 +17,7 @@ def valid_checkpoint_create_data():
     return CheckpointCreate(
         title="Introduction to Variables",
         content="Learn about Python variables and data types",
-        order=1
+        order=1,
     )
 
 
@@ -38,12 +38,12 @@ def test_create_checkpoint_success(valid_checkpoint_create_data):
     """Should create checkpoint when mission exists."""
     missions_collection = MagicMock()
     checkpoints_collection = FirestoreMocks.collection_empty()
-    
+
     # Mock mission exists
     mission_doc = FirestoreMocks.document_exists("mission123", {"id": "mission123"})
     missions_collection.document.return_value.get.return_value = mission_doc
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -61,7 +61,7 @@ def test_create_checkpoint_mission_not_found_raises_404(valid_checkpoint_create_
     missions_collection = MagicMock()
     mission_doc = FirestoreMocks.document_not_found()
     missions_collection.document.return_value.get.return_value = mission_doc
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -76,11 +76,11 @@ def test_get_checkpoint_found_returns_checkpoint(existing_checkpoint):
     """Should return checkpoint when it exists."""
     missions_collection = MagicMock()
     checkpoints_collection = MagicMock()
-    
+
     checkpoint_doc = FirestoreMocks.document_exists("checkpoint123", existing_checkpoint)
     checkpoints_collection.document.return_value.get.return_value = checkpoint_doc
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -95,11 +95,11 @@ def test_get_checkpoint_not_found_raises_404():
     """Should raise 404 when checkpoint doesn't exist."""
     missions_collection = MagicMock()
     checkpoints_collection = MagicMock()
-    
+
     checkpoint_doc = FirestoreMocks.document_not_found()
     checkpoints_collection.document.return_value.get.return_value = checkpoint_doc
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -114,13 +114,13 @@ def test_get_all_checkpoints(existing_checkpoint):
     """Should return all checkpoints ordered by 'order' field."""
     checkpoints_data = [
         existing_checkpoint,
-        {**existing_checkpoint, "id": "checkpoint456", "order": 2, "title": "Checkpoint 2"}
+        {**existing_checkpoint, "id": "checkpoint456", "order": 2, "title": "Checkpoint 2"},
     ]
-    
+
     missions_collection = MagicMock()
     checkpoints_collection = FirestoreMocks.collection_with_items(checkpoints_data)
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -136,15 +136,17 @@ def test_update_checkpoint_success(existing_checkpoint):
     """Should update checkpoint successfully."""
     missions_collection = MagicMock()
     checkpoints_collection = MagicMock()
-    
+
     doc_ref = checkpoints_collection.document.return_value
     doc_ref.get.side_effect = [
         FirestoreMocks.document_exists("checkpoint123", existing_checkpoint),
-        FirestoreMocks.document_exists("checkpoint123", {**existing_checkpoint, "title": "Updated"})
+        FirestoreMocks.document_exists(
+            "checkpoint123", {**existing_checkpoint, "title": "Updated"}
+        ),
     ]
-    
+
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -160,12 +162,12 @@ def test_update_checkpoint_not_found_raises_404():
     """Should raise 404 when updating non-existent checkpoint."""
     missions_collection = MagicMock()
     checkpoints_collection = MagicMock()
-    
+
     doc_ref = checkpoints_collection.document.return_value
     doc_ref.get.return_value = FirestoreMocks.document_not_found()
-    
+
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -180,12 +182,12 @@ def test_delete_checkpoint_success(existing_checkpoint):
     """Should delete checkpoint successfully."""
     missions_collection = MagicMock()
     checkpoints_collection = MagicMock()
-    
+
     doc_ref = checkpoints_collection.document.return_value
     doc_ref.get.return_value = FirestoreMocks.document_exists("checkpoint123", existing_checkpoint)
-    
+
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -200,12 +202,12 @@ def test_delete_checkpoint_not_found_raises_404():
     """Should raise 404 when deleting non-existent checkpoint."""
     missions_collection = MagicMock()
     checkpoints_collection = MagicMock()
-    
+
     doc_ref = checkpoints_collection.document.return_value
     doc_ref.get.return_value = FirestoreMocks.document_not_found()
-    
+
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)
@@ -220,33 +222,35 @@ def test_reorder_checkpoints(existing_checkpoint):
     """Should update order of multiple checkpoints."""
     checkpoints_data = [
         existing_checkpoint,
-        {**existing_checkpoint, "id": "checkpoint456", "order": 2}
+        {**existing_checkpoint, "id": "checkpoint456", "order": 2},
     ]
-    
+
     missions_collection = MagicMock()
     checkpoints_collection = MagicMock()
-    
+
     # Mock individual checkpoint documents
     checkpoint1_doc = MagicMock()
     checkpoint1_doc.exists = True
     checkpoint2_doc = MagicMock()
     checkpoint2_doc.exists = True
-    
+
     def mock_document(checkpoint_id):
         doc = MagicMock()
-        doc.get.return_value = checkpoint1_doc if checkpoint_id == "checkpoint123" else checkpoint2_doc
+        doc.get.return_value = (
+            checkpoint1_doc if checkpoint_id == "checkpoint123" else checkpoint2_doc
+        )
         return doc
-    
+
     checkpoints_collection.document = mock_document
-    
+
     # Mock order_by for get_all_checkpoints
     checkpoints_collection.order_by.return_value.get.return_value = [
         MagicMock(to_dict=MagicMock(return_value=checkpoints_data[0])),
-        MagicMock(to_dict=MagicMock(return_value=checkpoints_data[1]))
+        MagicMock(to_dict=MagicMock(return_value=checkpoints_data[1])),
     ]
-    
+
     missions_collection.document.return_value.collection.return_value = checkpoints_collection
-    
+
     db = MagicMock()
     db.collection.return_value = missions_collection
     service = CheckpointService(db)

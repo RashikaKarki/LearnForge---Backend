@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -120,21 +119,15 @@ class EnrollmentService:
         return {"message": f"Enrollment '{enrollment_id}' deleted successfully."}
 
     @handle_firestore_exceptions
-    def get_enrollments_by_user(
-        self, user_id: str, limit: int = 100
-    ) -> List[Enrollment]:
+    def get_enrollments_by_user(self, user_id: str, limit: int = 100) -> list[Enrollment]:
         """Get all enrollments for a specific user."""
         docs = (
-            self.collection.where(filter=FieldFilter("user_id", "==", user_id))
-            .limit(limit)
-            .get()
+            self.collection.where(filter=FieldFilter("user_id", "==", user_id)).limit(limit).get()
         )
         return [Enrollment(**doc.to_dict()) for doc in docs]
 
     @handle_firestore_exceptions
-    def get_enrollments_by_mission(
-        self, mission_id: str, limit: int = 100
-    ) -> List[Enrollment]:
+    def get_enrollments_by_mission(self, mission_id: str, limit: int = 100) -> list[Enrollment]:
         """Get all enrollments for a specific mission."""
         docs = (
             self.collection.where(filter=FieldFilter("mission_id", "==", mission_id))

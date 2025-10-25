@@ -16,9 +16,7 @@ def transfer_to_mission_director(tool_context: ToolContext) -> str:
     """Transfers to Mission Director (which handles both Curator and Weaver sequentially)."""
     print("Orchestrator: Transferring to Mission Director...")
     tool_context.actions.transfer_to_agent = mission_director_agent.name
-    return (
-        "Transferred to Mission Director for roadmap creation and content generation."
-    )
+    return "Transferred to Mission Director for roadmap creation and content generation."
 
 
 # Define tools

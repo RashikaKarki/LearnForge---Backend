@@ -1,0 +1,74 @@
+name: CI - Lint and Test
+
+on:
+  push:
+    branches: [ main, dev, dev-* ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.7.1
+        virtualenvs-create: true
+        virtualenvs-in-project: true
+
+    - name: Load cached venv
+      id: cached-poetry-dependencies
+      uses: actions/cache@v4
+      with:
+        path: .venv
+        key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+
+    - name: Install dependencies
+      if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+      run: poetry install --no-interaction --no-root
+
+    - name: Install project
+      run: poetry install --no-interaction
+
+    - name: Run Ruff linter
+      run: poetry run ruff check .
+      continue-on-error: false
+
+    - name: Run Black formatter check
+      run: poetry run black --check .
+      continue-on-error: false
+
+    - name: Run isort import check
+      run: poetry run isort --check-only --profile black .
+      continue-on-error: false
+
+    - name: Create mock firebase key
+      run: |
+        echo '{
+          "type": "service_account",
+          "project_id": "test-project",
+          "private_key_id": "test-key-id",
+          "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj\nMzEfYyjiWA4R4/M2bS1+fWIcPm15j9fKy7SLy1yWN2PMerKwQPey0mYSLy1yWN2P\nMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PM\nerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMe\nrKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMer\nKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSAgMBAAECggEA\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7VJTUt9Us8cKj\nMzEfYyjiWA4R4/M2bS1+fWIcPm15j9fKy7SLy1yWN2PMerKwQPey0mYSLy1yWN2P\nMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PM\nerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMe\nrKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMer\nKwQPey0mYSLy1yWN2PMerKwQPey0mYSLy1yWN2PMerKwQPey0mYSAgMBAAE=\n-----END PRIVATE KEY-----\n",
+          "client_email": "test@test-project.iam.gserviceaccount.com",
+          "client_id": "123456789",
+          "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+          "token_uri": "https://oauth2.googleapis.com/token",
+          "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+          "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test%40test-project.iam.gserviceaccount.com"
+        }' > firebase_key.json
+
+    - name: Run tests with pytest
+      run: poetry run pytest tests/ -v --tb=short
+      env:
+        FIREBASE_PROJECT_ID: test-project
+        FIREBASE_CREDENTIALS_PATH: firebase_key.json

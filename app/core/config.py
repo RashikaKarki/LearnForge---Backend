@@ -1,5 +1,4 @@
 import os
-from typing import List
 
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
@@ -26,7 +25,7 @@ class Settings(BaseSettings):
     AGENTS_DIR: str = "app/agents"
 
     @property
-    def cors_origins(self) -> List[str]:
+    def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.ALLOW_ORIGINS.split(",")]
 
     class Config:

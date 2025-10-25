@@ -18,7 +18,7 @@ def valid_mission_create_data():
         title="Learn Python Basics",
         description="A comprehensive guide to Python fundamentals",
         creator_id="user123",
-        is_public=True
+        is_public=True,
     )
 
 
@@ -96,7 +96,9 @@ def test_update_mission_success(existing_mission):
     doc_ref = collection.document.return_value
     doc_ref.get.side_effect = [
         FirestoreMocks.document_exists("mission123", existing_mission),
-        FirestoreMocks.document_exists("mission123", {**existing_mission, "title": "Updated Title"})
+        FirestoreMocks.document_exists(
+            "mission123", {**existing_mission, "title": "Updated Title"}
+        ),
     ]
     db = FirestoreMocks.mock_db_with_collection(collection)
     service = MissionService(db)
@@ -127,11 +129,11 @@ def test_delete_mission_success(existing_mission):
     collection = FirestoreMocks.collection_empty()
     doc_ref = collection.document.return_value
     doc_ref.get.return_value = FirestoreMocks.document_exists("mission123", existing_mission)
-    
+
     # Mock checkpoints subcollection
     checkpoint_docs = []
     doc_ref.collection.return_value.get.return_value = checkpoint_docs
-    
+
     db = FirestoreMocks.mock_db_with_collection(collection)
     service = MissionService(db)
 
@@ -159,7 +161,7 @@ def test_get_missions_by_creator(existing_mission):
     """Should return all missions by creator."""
     missions_data = [
         existing_mission,
-        {**existing_mission, "id": "mission456", "title": "Another Mission"}
+        {**existing_mission, "id": "mission456", "title": "Another Mission"},
     ]
     collection = FirestoreMocks.collection_with_items(missions_data)
     db = FirestoreMocks.mock_db_with_collection(collection)
@@ -199,11 +201,13 @@ def test_get_missions_by_creator_and_visibility():
         }
     ]
     collection = MagicMock()
-    
+
     # Mock chained where calls
     mock_doc = MagicMock(to_dict=MagicMock(return_value=missions_data[0]))
-    collection.where.return_value.where.return_value.limit.return_value.get.return_value = [mock_doc]
-    
+    collection.where.return_value.where.return_value.limit.return_value.get.return_value = [
+        mock_doc
+    ]
+
     db = FirestoreMocks.mock_db_with_collection(collection)
     service = MissionService(db)
 

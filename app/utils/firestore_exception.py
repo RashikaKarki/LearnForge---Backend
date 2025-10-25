@@ -19,6 +19,6 @@ def handle_firestore_exceptions(func):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Internal server error: {str(e)}",
-            )
+            ) from e
 
     return wrapper

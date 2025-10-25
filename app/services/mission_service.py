@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import List
 
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -72,9 +71,7 @@ class MissionService:
         return {"message": f"Mission '{mission_id}' deleted successfully."}
 
     @handle_firestore_exceptions
-    def get_missions_by_creator(
-        self, creator_id: str, limit: int = 100
-    ) -> List[Mission]:
+    def get_missions_by_creator(self, creator_id: str, limit: int = 100) -> list[Mission]:
         """Get all missions created by a specific user."""
         docs = (
             self.collection.where(filter=FieldFilter("creator_id", "==", creator_id))
@@ -84,11 +81,9 @@ class MissionService:
         return [Mission(**doc.to_dict()) for doc in docs]
 
     @handle_firestore_exceptions
-    def get_public_missions(self, limit: int = 100, offset: int = 0) -> List[Mission]:
+    def get_public_missions(self, limit: int = 100, offset: int = 0) -> list[Mission]:
         """Get all public missions with pagination."""
-        query = self.collection.where(
-            filter=FieldFilter("is_public", "==", True)
-        ).limit(limit)
+        query = self.collection.where(filter=FieldFilter("is_public", "==", True)).limit(limit)
         if offset > 0:
             docs = list(
                 self.collection.where(filter=FieldFilter("is_public", "==", True))
@@ -104,7 +99,7 @@ class MissionService:
     @handle_firestore_exceptions
     def get_missions_by_creator_and_visibility(
         self, creator_id: str, is_public: bool, limit: int = 100
-    ) -> List[Mission]:
+    ) -> list[Mission]:
         """Get missions by creator filtered by visibility (public/private)."""
         docs = (
             self.collection.where(filter=FieldFilter("creator_id", "==", creator_id))
