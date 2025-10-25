@@ -1,6 +1,6 @@
 """Authentication dependencies for route handlers"""
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import HTTPException, Request, status
 
 from app.models.user import User
 

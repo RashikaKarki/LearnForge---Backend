@@ -1,6 +1,5 @@
 """Unit tests for Firebase session middleware."""
 
-from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from starlette.testclient import TestClient

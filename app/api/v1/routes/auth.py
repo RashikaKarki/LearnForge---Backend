@@ -56,17 +56,17 @@ async def create_session(request: CreateSessionRequest, response: Response):
 
         return SessionResponse(message="Session created successfully", uid=decoded_token["uid"])
 
-    except auth.InvalidIdTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token")
-    except auth.ExpiredIdTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="ID token has expired")
+    except auth.InvalidIdTokenError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid ID token") from e
+    except auth.ExpiredIdTokenError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="ID token has expired") from e
     except Exception as e:
         print("I am here")
         print(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create session: {str(e)}",
-        )
+        ) from e
 
 
 @router.post("/logout", response_model=SessionResponse)
@@ -117,16 +117,16 @@ async def refresh_session(request: Request, response: Response):
 
         return SessionResponse(message="Session refreshed successfully", uid=decoded_claims["uid"])
 
-    except auth.ExpiredSessionCookieError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired")
-    except auth.RevokedSessionCookieError:
+    except auth.ExpiredSessionCookieError as e:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has expired") from e
+    except auth.RevokedSessionCookieError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Session has been revoked"
-        )
-    except auth.InvalidSessionCookieError:
+        ) from e
+    except auth.InvalidSessionCookieError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session cookie"
-        )
+        ) from e
 
 
 @router.get("/session-status", response_model=SessionResponse)
@@ -142,7 +142,7 @@ async def get_session_status(request: Request):
     try:
         decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
         return SessionResponse(message="Session is valid", uid=decoded_claims["uid"])
-    except Exception:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session"
-        )
+        ) from e

@@ -1,7 +1,7 @@
 """Unit tests for auth endpoints."""
 
 import time
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from fastapi import FastAPI
 from starlette.testclient import TestClient
