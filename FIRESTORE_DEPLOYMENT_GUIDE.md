@@ -48,7 +48,7 @@ missions = mission_service.get_missions_by_creator("user_id")
 
 # Test filtered creator query
 missions = mission_service.get_missions_by_creator_and_visibility(
-    "user_id",
+    "user_id", 
     is_public=True
 )
 

@@ -55,7 +55,11 @@ class UserService:
 
     @handle_firestore_exceptions
     def get_user_by_email(self, email: str) -> User:
-        docs = self.collection.where(filter=FieldFilter("email", "==", email)).limit(1).get()
+        docs = (
+            self.collection.where(filter=FieldFilter("email", "==", email))
+            .limit(1)
+            .get()
+        )
         for doc in docs:
             return User(**doc.to_dict())
         raise HTTPException(

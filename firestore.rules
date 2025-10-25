@@ -1,76 +1,76 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
+    
     // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-
+    
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-
+    
     // Users collection
     match /users/{userId} {
       // Anyone authenticated can read user profiles
       allow read: if isAuthenticated();
-
+      
       // Users can only write their own profile
-      allow create: if isOwner(userId) &&
+      allow create: if isOwner(userId) && 
                        request.resource.data.firebase_uid == request.auth.uid;
       allow update, delete: if isOwner(userId);
     }
-
+    
     // Missions collection
     match /missions/{missionId} {
       // Read: Public missions or missions created by authenticated user
-      allow read: if resource.data.is_public == true ||
+      allow read: if resource.data.is_public == true || 
                      isOwner(resource.data.creator_id);
-
+      
       // Create: Authenticated users, must set themselves as creator
-      allow create: if isAuthenticated() &&
+      allow create: if isAuthenticated() && 
                        request.resource.data.creator_id == request.auth.uid &&
                        request.resource.data.keys().hasAll(['title', 'description', 'creator_id', 'is_public']);
-
+      
       // Update: Only mission creator
       allow update: if isOwner(resource.data.creator_id) &&
                        request.resource.data.creator_id == resource.data.creator_id; // Can't change creator
-
+      
       // Delete: Only mission creator
       allow delete: if isOwner(resource.data.creator_id);
-
+      
       // Checkpoints subcollection
       match /checkpoints/{checkpointId} {
         // Read: Same permissions as parent mission
         allow read: if get(/databases/$(database)/documents/missions/$(missionId)).data.is_public == true ||
                        isOwner(get(/databases/$(database)/documents/missions/$(missionId)).data.creator_id);
-
+        
         // Write: Only mission creator
         allow write: if isOwner(get(/databases/$(database)/documents/missions/$(missionId)).data.creator_id);
       }
     }
-
+    
     // Enrollments collection
     match /enrollments/{enrollmentId} {
       // Read: Enrolled user or mission creator can view enrollment
-      allow read: if isAuthenticated() &&
+      allow read: if isAuthenticated() && 
                      (isOwner(resource.data.user_id) ||
                       isOwner(get(/databases/$(database)/documents/missions/$(resource.data.mission_id)).data.creator_id));
-
+      
       // Create: User can enroll themselves
-      allow create: if isAuthenticated() &&
+      allow create: if isAuthenticated() && 
                        request.resource.data.user_id == request.auth.uid &&
                        enrollmentId == request.resource.data.user_id + '_' + request.resource.data.mission_id &&
                        request.resource.data.keys().hasAll(['id', 'user_id', 'mission_id', 'enrolled_at', 'progress', 'last_accessed_at']);
-
+      
       // Update: Only enrolled user can update their own enrollment
       allow update: if isOwner(resource.data.user_id) &&
                        request.resource.data.user_id == resource.data.user_id && // Can't change user_id
                        request.resource.data.mission_id == resource.data.mission_id; // Can't change mission_id
-
+      
       // Delete: Enrolled user or mission creator can delete
-      allow delete: if isAuthenticated() &&
+      allow delete: if isAuthenticated() && 
                        (isOwner(resource.data.user_id) ||
                         isOwner(get(/databases/$(database)/documents/missions/$(resource.data.mission_id)).data.creator_id));
     }

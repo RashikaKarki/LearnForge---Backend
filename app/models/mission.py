@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -8,10 +9,12 @@ class Mission(BaseModel):
     title: str
     description: str
     creator_id: str = Field(..., description="User ID of the mission creator")
-    skills: list[str] | None = Field(
+    skills: Optional[list[str]] = Field(
         default_factory=list, description="List of skills associated with the mission"
     )
-    is_public: bool = Field(default=True, description="Whether the mission is publicly accessible")
+    is_public: bool = Field(
+        default=True, description="Whether the mission is publicly accessible"
+    )
     created_at: datetime = Field(default_factory=datetime.today)
     updated_at: datetime = Field(default_factory=datetime.today)
 
@@ -21,10 +24,10 @@ class MissionCreate(BaseModel):
     description: str
     creator_id: str
     is_public: bool = True
-    skills: list[str] | None = None
+    skills: Optional[list[str]] = None
 
 
 class MissionUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
-    is_public: bool | None = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    is_public: Optional[bool] = None

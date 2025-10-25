@@ -35,7 +35,9 @@ class FirestoreMocks:
 
         # Mock where queries returning the item
         collection.where.return_value.limit.return_value.get.return_value = [doc]
-        collection.where.return_value.where.return_value.limit.return_value.get.return_value = [doc]
+        collection.where.return_value.where.return_value.limit.return_value.get.return_value = [
+            doc
+        ]
 
         return collection
 

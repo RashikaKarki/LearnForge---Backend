@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -9,7 +10,7 @@ class Checkpoint(BaseModel):
     title: str
     content: str
     order: int = Field(..., description="Order/sequence of checkpoint in the mission")
-    sources: dict[str, str] | None = Field(
+    sources: Optional[dict[str, str]] = Field(
         default_factory=dict,
         description="Mapping of source names to URLs or references",
     )
@@ -20,10 +21,10 @@ class CheckpointCreate(BaseModel):
     title: str
     content: str
     order: int
-    sources: list[str] | None = None
+    sources: Optional[list[str]] = None
 
 
 class CheckpointUpdate(BaseModel):
-    title: str | None = None
-    content: str | None = None
-    order: int | None = None
+    title: Optional[str] = None
+    content: Optional[str] = None
+    order: Optional[int] = None
