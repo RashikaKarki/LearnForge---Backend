@@ -3,7 +3,14 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter
 
-from app.models.enrollment import Enrollment, EnrollmentCreate, EnrollmentUpdate
+from app.models.enrollment import (
+    CheckpointProgress,
+    CheckpointProgressCreate,
+    CheckpointProgressUpdate,
+    Enrollment,
+    EnrollmentCreate,
+    EnrollmentUpdate,
+)
 from app.utils.firestore_exception import handle_firestore_exceptions
 
 
@@ -49,6 +56,8 @@ class EnrollmentService:
         enrollment_data["id"] = enrollment_id
         enrollment_data["enrolled_at"] = datetime.today()
         enrollment_data["last_accessed_at"] = datetime.today()
+        enrollment_data["completed"] = False
+        enrollment_data["created_at"] = datetime.today()
         enrollment_data["updated_at"] = datetime.today()
 
         self.collection.document(enrollment_id).set(enrollment_data)
@@ -95,7 +104,8 @@ class EnrollmentService:
 
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         if update_data:
-            # Always update last_accessed_at when updating enrollment
+            # Always update updated_at and last_accessed_at when updating enrollment
+            update_data["updated_at"] = datetime.today()
             if "last_accessed_at" not in update_data:
                 update_data["last_accessed_at"] = datetime.today()
             doc_ref.update(update_data)
@@ -149,6 +159,128 @@ class EnrollmentService:
                 detail=f"Enrollment not found for user '{user_id}' in mission '{mission_id}'.",
             )
 
-        doc_ref.update({"last_accessed_at": datetime.today()})
+        doc_ref.update({"last_accessed_at": datetime.today(), "updated_at": datetime.today()})
         updated_doc = doc_ref.get()
         return Enrollment(**updated_doc.to_dict())
+
+    @handle_firestore_exceptions
+    def create_checkpoint_progress(
+        self, user_id: str, mission_id: str, data: CheckpointProgressCreate
+    ) -> CheckpointProgress:
+        """Create a checkpoint progress entry in the enrollment's subcollection."""
+        enrollment_id = self._generate_enrollment_id(user_id, mission_id)
+        enrollment_doc = self.collection.document(enrollment_id).get()
+
+        if not enrollment_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Enrollment not found for user '{user_id}' in mission '{mission_id}'.",
+            )
+
+        # Check if checkpoint progress already exists
+        checkpoint_progress_ref = (
+            self.collection.document(enrollment_id)
+            .collection("checkpoint_progress")
+            .document(data.checkpoint_id)
+        )
+        existing_doc = checkpoint_progress_ref.get()
+
+        if existing_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Checkpoint progress already exists for checkpoint '{data.checkpoint_id}'.",
+            )
+
+        checkpoint_progress_data = data.model_dump()
+        checkpoint_progress_data["created_at"] = datetime.today()
+        checkpoint_progress_data["updated_at"] = datetime.today()
+        checkpoint_progress_ref.set(checkpoint_progress_data)
+
+        return CheckpointProgress(**checkpoint_progress_data)
+
+    @handle_firestore_exceptions
+    def get_checkpoint_progress(
+        self, user_id: str, mission_id: str, checkpoint_id: str
+    ) -> CheckpointProgress:
+        """Get a specific checkpoint progress entry."""
+        enrollment_id = self._generate_enrollment_id(user_id, mission_id)
+        checkpoint_progress_ref = (
+            self.collection.document(enrollment_id)
+            .collection("checkpoint_progress")
+            .document(checkpoint_id)
+        )
+        doc = checkpoint_progress_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Checkpoint progress not found for checkpoint '{checkpoint_id}'.",
+            )
+
+        return CheckpointProgress(**doc.to_dict())
+
+    @handle_firestore_exceptions
+    def get_all_checkpoint_progress(
+        self, user_id: str, mission_id: str
+    ) -> list[CheckpointProgress]:
+        """Get all checkpoint progress entries for an enrollment."""
+        enrollment_id = self._generate_enrollment_id(user_id, mission_id)
+        enrollment_doc = self.collection.document(enrollment_id).get()
+
+        if not enrollment_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Enrollment not found for user '{user_id}' in mission '{mission_id}'.",
+            )
+
+        checkpoint_progress_docs = (
+            self.collection.document(enrollment_id).collection("checkpoint_progress").get()
+        )
+
+        return [CheckpointProgress(**doc.to_dict()) for doc in checkpoint_progress_docs]
+
+    @handle_firestore_exceptions
+    def update_checkpoint_progress(
+        self, user_id: str, mission_id: str, checkpoint_id: str, data: CheckpointProgressUpdate
+    ) -> CheckpointProgress:
+        """Update a checkpoint progress entry."""
+        enrollment_id = self._generate_enrollment_id(user_id, mission_id)
+        checkpoint_progress_ref = (
+            self.collection.document(enrollment_id)
+            .collection("checkpoint_progress")
+            .document(checkpoint_id)
+        )
+        doc = checkpoint_progress_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Checkpoint progress not found for checkpoint '{checkpoint_id}'.",
+            )
+
+        update_data = data.model_dump()
+        update_data["updated_at"] = datetime.today()
+        checkpoint_progress_ref.update(update_data)
+
+        updated_doc = checkpoint_progress_ref.get()
+        return CheckpointProgress(**updated_doc.to_dict())
+
+    @handle_firestore_exceptions
+    def delete_checkpoint_progress(self, user_id: str, mission_id: str, checkpoint_id: str) -> dict:
+        """Delete a checkpoint progress entry."""
+        enrollment_id = self._generate_enrollment_id(user_id, mission_id)
+        checkpoint_progress_ref = (
+            self.collection.document(enrollment_id)
+            .collection("checkpoint_progress")
+            .document(checkpoint_id)
+        )
+        doc = checkpoint_progress_ref.get()
+
+        if not doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Checkpoint progress not found for checkpoint '{checkpoint_id}'.",
+            )
+
+        checkpoint_progress_ref.delete()
+        return {"message": f"Checkpoint progress for '{checkpoint_id}' deleted successfully."}
