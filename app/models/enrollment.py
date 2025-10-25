@@ -3,6 +3,25 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
+class CheckpointProgress(BaseModel):
+    """Model for checkpoint progress sub-collection."""
+    checkpoint_id: str = Field(..., description="ID of the checkpoint")
+    completed: bool = Field(default=False, description="Whether the checkpoint is completed")
+    created_at: datetime = Field(default_factory=datetime.today)
+    updated_at: datetime = Field(default_factory=datetime.today)
+
+
+class CheckpointProgressCreate(BaseModel):
+    """Schema for creating checkpoint progress."""
+    checkpoint_id: str
+    completed: bool = False
+
+
+class CheckpointProgressUpdate(BaseModel):
+    """Schema for updating checkpoint progress."""
+    completed: bool
+
+
 class Enrollment(BaseModel):
     id: str = Field(..., description="Composite key: {userId}_{missionId}")
     user_id: str = Field(..., description="ID of the enrolled user")
@@ -12,6 +31,9 @@ class Enrollment(BaseModel):
         default=0.0, ge=0.0, le=100.0, description="Progress percentage (0-100)"
     )
     last_accessed_at: datetime = Field(default_factory=datetime.today)
+    completed: bool = Field(default=False, description="Whether the mission is completed")
+    created_at: datetime = Field(default_factory=datetime.today)
+    updated_at: datetime = Field(default_factory=datetime.today)
 
 
 class EnrollmentCreate(BaseModel):
@@ -23,3 +45,4 @@ class EnrollmentCreate(BaseModel):
 class EnrollmentUpdate(BaseModel):
     progress: float | None = Field(None, ge=0.0, le=100.0)
     last_accessed_at: datetime | None = None
+    completed: bool | None = None
