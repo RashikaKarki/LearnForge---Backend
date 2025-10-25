@@ -1,79 +1,117 @@
 # LearnForge: A Personalized AI Learning Architect
 
-
 [![CI - Lint and Test](https://github.com/RashikaKarki/LearnForge---Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/RashikaKarki/LearnForge---Backend/actions/workflows/ci.yml)
+[![Deploy to Cloud Run](https://github.com/RashikaKarki/LearnForge---Backend/actions/workflows/deploy.yml/badge.svg)](https://github.com/RashikaKarki/LearnForge---Backend/actions/workflows/deploy.yml)
 
 ## Introduction
 
-**LearnForge** is an AI-powered educational backend that designs and orchestrates deeply personalized learning experiences. Built with the **Agent Development Kit (ADK)** and powered by a **multi-agent architecture**, LearnForge adapts to each learner’s goals, existing knowledge, and preferred depth of understanding.
+**LearnForge** is an AI-powered educational backend that designs and orchestrates deeply personalized learning experiences. Built with the **Agent Development Kit (ADK)** and powered by a **multi-agent architecture**, LearnForge adapts to each learner's goals, existing knowledge, and preferred depth of understanding.
 
 It intelligently generates **missions**, **content**, and **evaluations** — guiding users through an adaptive journey toward true mastery.
 
-
 ## Core Principles
 
-* **Personalization** – Learning paths are dynamically tailored to the learner’s objectives, desired depth, and prior experience.
+* **Personalization** – Learning paths are dynamically tailored to the learner's objectives, desired depth, and prior experience.
 * **Byte-Sized Learning** – Every concept is delivered as a focused, digestible *mission* composed of smaller actionable *steps*.
 * **Adaptive Reinforcement** – Continuous assessments and feedback ensure concept mastery through reinforcement and iteration.
 * **Conversational Interface** – Learners interact naturally with AI agents that understand, guide, and support their progress.
 
+## Prerequisites
 
-## Getting Started
+* Docker & Docker Compose
+* Google Cloud SDK (for deployment)
 
-### Prerequisites
-
-* Python ≥ 3.10
-* [Poetry](https://python-poetry.org/docs/) installed
-
-### Installation
+## Quick Start
 
 ```bash
 # Clone the repository
 git clone https://github.com/rashikakarki/learnforge-backend.git
 cd learnforge-backend
 
-# Install dependencies
-poetry install
+# Create .env file
+cp .env.example .env
+# Edit .env and add your configuration
 
-# Activate the virtual environment
-poetry env activate
+# Start the application
+make up
 ```
 
-### Pre-commit hooks (linting & formatting)
+The API will be available at http://localhost:8080
 
-This repository includes a `.pre-commit-config.yaml` that runs formatters and linters on each commit.
+## Available Commands
+
+### Development
 
 ```bash
-# run hooks once on all files
-poetry run pre-commit run --all-files
+make up              # Start development server
+make down            # Stop server
+make logs            # View logs
+make restart         # Restart server
+make shell           # Open container shell
 ```
 
-### Run the Application
+### Testing & Code Quality
 
 ```bash
-python main.py
+make test            # Run all tests
+make lint            # Run linters (ruff, black, isort)
+make format          # Format code
+make docker-test     # Test Docker build locally
 ```
 
-By default, this starts the LearnForge backend service and initializes all AI agents.
+### Deployment
+
+```bash
+make deploy          # Deploy to Google Cloud Run
+```
+
+> **Note**: Deployment requires `.env` file with GCP configuration. See [CD_SETUP_GUIDE.md](CD_SETUP_GUIDE.md) for setup instructions.
+
+## API Documentation
+
+Once running, visit:
+- **Swagger UI**: http://localhost:8080/docs
+- **ReDoc**: http://localhost:8080/redoc
+- **Health Check**: http://localhost:8080/api/health
+
+## CI/CD Pipeline
+
+### Automated Workflows
+
+- **CI** - Runs on all branches and PRs
+  - ✅ Linting (ruff, black, isort)
+  - ✅ Unit tests (pytest)
+
+- **CD** - Deploys on push to `main`
+  - 🚀 Auto-deploy to Cloud Run
+
+### Setup GitHub Deployment
+
+1. Add GitHub secrets:
+   - `GCP_PROJECT_ID`
+   - `FIREBASE_PROJECT_ID`
+   - `GOOGLE_API_KEY`
+   - `ALLOW_ORIGINS`
+   - `GCP_SA_KEY`
+
+2. Run setup script:
+   ```bash
+   ./setup-cd.sh
+   ```
+
+3. Push to `main` to deploy
+
 
 ## Tech Stack
 
-* **Python** for backend logic
-* **Agent Development Kit (ADK)** for multi-agent orchestration
-* **Poetry** for dependency management and environment control
+* **Python 3.11** - Backend runtime
+* **FastAPI** - Web framework
+* **Agent Development Kit (ADK)** - Multi-agent orchestration
+* **FireBase** - Authentication
+* **Google Firestore** - Database
+* **Docker** - Containerization
+* **Google Cloud Run** - Production deployment
 
-## Testing
+## Documentation
 
-To run the test suite locally:
-
-1. Install dev dependencies (pytest and httpx/testclient) into your environment.
-
-```bash
-poetry add pytest httpx
-```
-
-2. Run pytest from the project root:
-
-```bash
-pytest -q
-```
+- [unit_testing_guide.md](unit_testing_guide.md) - Testing guide
