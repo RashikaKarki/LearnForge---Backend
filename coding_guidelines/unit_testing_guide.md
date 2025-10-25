@@ -152,57 +152,86 @@ def test_create_user_duplicate_raises_400(mock_db, valid_user_data):
 
 **Goal: Test HTTP layer only**
 
+**CRITICAL: FastAPI endpoint tests are SYNCHRONOUS functions**
+
 ```python
-# tests/unit/test_endpoints.py
-from fastapi.testclient import TestClient
+# tests/api/test_user.py
+from fastapi import FastAPI
+from starlette.testclient import TestClient
 from unittest.mock import patch
 
-client = TestClient(app)
+# Correct: Synchronous test function
+def test_create_user_endpoint_success():
+    """TestClient handles async automatically."""
+    app = FastAPI()
+    app.include_router(user_router, prefix="/users")
+    
+    with patch('app.api.routes.user.UserService') as mock_service:
+        mock_service.return_value.create_user.return_value = User(
+            id="123",
+            email="test@example.com",
+            name="Test"
+        )
+        
+        client = TestClient(app)
+        response = client.post("/users", json={
+            "email": "test@example.com",
+            "name": "Test"
+        })
+        
+        assert response.status_code == 201
+        assert response.json()["email"] == "test@example.com"
 
-@patch('app.api.routes.user_service')
-def test_create_user_endpoint_success(mock_service):
-    mock_service.create_user.return_value = User(
-        id="123",
-        email="test@example.com",
-        name="Test"
-    )
+# Wrong: Do NOT use async def or @pytest.mark.anyio
+# async def test_endpoint():  # DON'T DO THIS
+#     ...
 
-    response = client.post("/users", json={
-        "email": "test@example.com",
-        "name": "Test"
-    })
-
-    assert response.status_code == 201
-    assert response.json()["email"] == "test@example.com"
-    mock_service.create_user.assert_called_once()
-
-@patch('app.api.routes.user_service')
-def test_create_user_endpoint_validation_error(mock_service):
+def test_endpoint_validation_error():
+    """Test validation errors - no mocking needed."""
+    app = FastAPI()
+    app.include_router(user_router, prefix="/users")
+    
+    client = TestClient(app)
     response = client.post("/users", json={
         "email": "invalid"  # missing required fields
     })
-
+    
     assert response.status_code == 422
 
-@patch('app.api.routes.user_service')
-def test_create_user_endpoint_duplicate_email(mock_service):
-    mock_service.create_user.side_effect = HTTPException(
-        status_code=400,
-        detail="Email exists"
-    )
-
-    response = client.post("/users", json={
-        "email": "test@example.com",
-        "name": "Test"
-    })
-
-    assert response.status_code == 400
+def test_endpoint_service_error():
+    """Mock service layer for error scenarios."""
+    app = FastAPI()
+    app.include_router(user_router, prefix="/users")
+    
+    with patch('app.api.routes.user.UserService') as mock_service:
+        mock_service.return_value.create_user.side_effect = HTTPException(
+            status_code=400,
+            detail="Email exists"
+        )
+        
+        client = TestClient(app)
+        response = client.post("/users", json={
+            "email": "test@example.com",
+            "name": "Test"
+        })
+        
+        assert response.status_code == 400
 ```
 
+**Key Rules:**
+1. Use synchronous `def` (not `async def`)
+2. Use `TestClient` from starlette (handles async internally)
+3. Create fresh FastAPI app per test
+4. Mock at the service/dependency level
+5. Never use `@pytest.mark.anyio` for endpoint tests
+6. Don't try to await responses - TestClient handles it
+
 **Pattern:**
-1. Mock the service layer
-2. Make HTTP request via TestClient
-3. Assert status code + response body
+1. Create FastAPI app + include router
+2. Mock service layer (if needed)
+3. Create TestClient
+4. Make HTTP request
+5. Assert status code + response body
 
 ---
 
@@ -245,7 +274,7 @@ def test_user_full_lifecycle():
 - **Test Data** → Keep in test file (even if shared) - makes tests readable
 - **Infrastructure** → Put in conftest.py - generic setup that's not test-specific
 
-### ❌ Bad: Test data hidden in conftest.py
+### Bad: Test data hidden in conftest.py
 ```python
 # conftest.py - DON'T DO THIS
 @pytest.fixture
@@ -257,7 +286,7 @@ def existing_mission():  # Test data should be in test file!
     return {"id": "123", "title": "Test Mission"}
 ```
 
-### ✅ Good: Test data in test file (even if shared across tests)
+### Good: Test data in test file (even if shared across tests)
 ```python
 # tests/services/test_user_service.py
 from datetime import datetime
@@ -290,7 +319,7 @@ def test_create_user(valid_user_create_data):
     pass
 ```
 
-### ✅ Good: Infrastructure/setup in conftest.py
+### Good: Infrastructure/setup in conftest.py
 ```python
 # conftest.py - Generic infrastructure shared across ALL tests
 import pytest
@@ -322,10 +351,10 @@ def test_client():
 - **When in doubt** → Keep it in the test file for visibility
 
 **Benefits:**
-- ✅ Tests are self-documenting (can see the test data)
-- ✅ Easy to modify test data without affecting other tests
-- ✅ No jumping between files to understand what's being tested
-- ✅ Infrastructure stays DRY in conftest
+- Tests are self-documenting (can see the test data)
+- Easy to modify test data without affecting other tests
+- No jumping between files to understand what's being tested
+- Infrastructure stays DRY in conftest
 
 ---
 
@@ -349,7 +378,154 @@ def test_email_validation(email, valid):
 
 ---
 
-## 8. Quick Reference
+## 9. Testing Middleware
+
+**Goal: Test middleware behavior without full integration**
+
+**Keep it minimal - test the core contract, not implementation details**
+
+```python
+# tests/middleware/test_session_middleware.py
+from fastapi import FastAPI
+from starlette.testclient import TestClient
+
+def test_middleware_missing_cookie_returns_401():
+    """Test core behavior: no auth = 401."""
+    app = FastAPI()
+    app.add_middleware(SessionMiddleware)
+    
+    @app.get("/test")
+    def test_endpoint():
+        return {"ok": True}
+    
+    client = TestClient(app)
+    response = client.get("/test")
+    
+    assert response.status_code == 401
+
+def test_middleware_excluded_path_skips_auth():
+    """Test that excluded paths work."""
+    app = FastAPI()
+    app.add_middleware(SessionMiddleware)
+    
+    @app.get("/docs")  # usually excluded
+    def docs_endpoint():
+        return {"ok": True}
+    
+    client = TestClient(app)
+    response = client.get("/docs")
+    
+    assert response.status_code == 200
+
+def test_middleware_options_request_skips_auth():
+    """Test CORS preflight handling."""
+    app = FastAPI()
+    app.add_middleware(SessionMiddleware)
+    
+    @app.options("/test")
+    def test_endpoint():
+        return {"ok": True}
+    
+    client = TestClient(app)
+    response = client.options("/test")
+    
+    assert response.status_code == 200
+```
+
+**Rules for Middleware Tests:**
+1. Test contract (401 when no auth, 200 for excluded paths)
+2. Keep tests simple - don't mock complex auth flows
+3. Test edge cases (OPTIONS, excluded paths)
+4. Don't test full integration with database/services
+5. Don't test implementation details (how tokens are parsed)
+
+**Why minimal?**
+- Middleware logic is tested in integration tests
+- Complex mocking of auth flows is brittle
+- Focus on the public contract (what happens, not how)
+
+---
+
+## 10. Common Pitfalls & Solutions
+
+### Pitfall 1: Async Test Functions
+```python
+# Wrong - causes "async def not supported" errors
+@pytest.mark.anyio
+async def test_endpoint():
+    response = await client.post("/users")
+
+# Correct - TestClient handles async
+def test_endpoint():
+    client = TestClient(app)
+    response = client.post("/users")  # No await needed
+```
+
+### Pitfall 2: Complex Exception Mocking
+```python
+# Wrong - Firebase exceptions need 'cause' parameter, brittle
+mock_auth.verify_token.side_effect = firebase_auth.InvalidIdTokenError("msg")
+
+# Correct - Test behavior, not specific exceptions
+def test_invalid_token_returns_401():
+    with patch('app.routes.auth.auth') as mock_auth:
+        mock_auth.verify_token.side_effect = Exception("Invalid")
+        response = client.post("/auth", json={"token": "bad"})
+        assert response.status_code == 401
+```
+
+### Pitfall 3: Over-Mocking Middleware
+```python
+# Wrong - Too complex, tests implementation
+def test_middleware_valid_session():
+    with patch('middleware.auth') as mock_auth:
+        with patch('middleware.UserService') as mock_service:
+            mock_auth.verify.return_value = {"uid": "123"}
+            mock_service.get_user.return_value = user
+            # 20 more lines...
+
+# Correct - Test the contract only
+def test_middleware_missing_cookie_returns_401():
+    app = FastAPI()
+    app.add_middleware(AuthMiddleware)
+    client = TestClient(app)
+    response = client.get("/test")
+    assert response.status_code == 401
+```
+
+### Pitfall 4: Sharing Test Data via conftest
+```python
+# Wrong - Test data hidden in conftest
+# conftest.py
+@pytest.fixture
+def valid_user_data():
+    return {"email": "test@example.com", "name": "Test"}
+
+# Correct - Test data visible in test file
+# test_user.py
+@pytest.fixture
+def valid_user_data():
+    return {"email": "test@example.com", "name": "Test"}
+```
+
+### Pitfall 5: Testing Framework Features
+```python
+# Wrong - Testing Pydantic validation (not our code)
+def test_pydantic_validates_email():
+    with pytest.raises(ValidationError):
+        User(email="not-an-email")
+
+# Correct - Test our business logic only
+def test_create_user_with_invalid_email_raises_400():
+    service = UserService(mock_db)
+    with pytest.raises(HTTPException) as exc:
+        service.create_user(UserCreate(email="invalid"))
+    assert exc.value.status_code == 400
+```
+
+---
+
+## 11. Quick Reference
 
 ### Test Naming
 ```python
@@ -364,23 +540,35 @@ def test_delete_user_success_returns_true():
 
 ### What to Mock
 - Database connections
-- External APIs
-- File system
+- External APIs (Firebase, payment gateways)
+- File system operations
 - datetime.now()
+- Service layer (when testing endpoints)
 - Never mock: Your models
 - Never mock: Simple data structures
+- Never mock: Framework internals (Pydantic, FastAPI)
 
 ### What to Test
 - Success paths
 - Error cases (404, 400, 500)
 - Edge cases (None, empty, invalid)
-- Validation logic
-- Do not test Framework internals
-- Do not test Third-party libraries
+- Business logic validation
+- HTTP status codes and response structure
+- Do not test: Framework internals
+- Do not test: Third-party libraries
+- Do not test: Complex exception handling (keep simple)
+
+### Testing FastAPI Specifics
+- Use `def` (not `async def`) for endpoint tests
+- Use `TestClient` from starlette
+- Create fresh app per test for isolation
+- Mock at service/dependency level
+- Never use `@pytest.mark.anyio` for endpoints
+- Never await TestClient responses
 
 ---
 
-## Complete Example
+## 12. Complete Example
 
 ```python
 # tests/mocks/firestore.py - Reusable mock factories
@@ -430,18 +618,57 @@ def test_create_user_success(mock_db, valid_user_create_data):
 
     assert user.email == "test@example.com"
     assert user.id == "auto_generated_id"
+
+# tests/api/test_user.py - Endpoint test example
+def test_create_user_endpoint():
+    """Synchronous test with TestClient."""
+    app = FastAPI()
+    app.include_router(user_router, prefix="/users")
+    
+    with patch('app.api.routes.user.UserService') as mock_service:
+        mock_service.return_value.create_user.return_value = User(
+            id="123", email="test@example.com", name="Test"
+        )
+        
+        client = TestClient(app)
+        response = client.post("/users", json={
+            "email": "test@example.com", "name": "Test"
+        })
+        
+        assert response.status_code == 201
+
+# tests/middleware/test_auth.py - Middleware test example
+def test_middleware_no_cookie_returns_401():
+    """Minimal middleware test - test the contract."""
+    app = FastAPI()
+    app.add_middleware(AuthMiddleware)
+    
+    @app.get("/test")
+    def endpoint():
+        return {"ok": True}
+    
+    client = TestClient(app)
+    response = client.get("/test")
+    
+    assert response.status_code == 401
 ```
 
 ---
 
-## Checklist
+## 13. Checklist
 
 Before committing tests:
 - [ ] Each test < 15 lines
-- [ ] Using reusable mocks
-- [ ] Clear test name
-- [ ] One thing tested
+- [ ] Using reusable mocks from `tests/mocks/`
+- [ ] Clear test name (`test_method_scenario_result`)
+- [ ] One thing tested per test
 - [ ] Test data fixtures are in the test file (visible)
 - [ ] Infrastructure mocks are in conftest.py (if shared)
 - [ ] Tests run independently
 - [ ] No hardcoded values in assertions
+- [ ] **For endpoint tests: using `def` not `async def`**
+- [ ] **For endpoint tests: using `TestClient`, not awaiting responses**
+- [ ] **For middleware tests: testing contract, not implementation**
+- [ ] **Not testing framework features (Pydantic, FastAPI internals)**
+
+````
