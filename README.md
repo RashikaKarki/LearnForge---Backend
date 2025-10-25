@@ -106,7 +106,7 @@ These are used by your **running application** on Cloud Run. Create them in [Sec
 |------------|-------------|---------------|
 | `firebase-service-account-key` | Firebase service account JSON | Upload `firebase_key.json` content |
 | `google-api-key` | Google API key for Gemini/GenAI | Paste API key value |
-| `allow-origins` | CORS allowed origins | e.g., `https://myapp.com,http://localhost:8000` |
+| `allow-origins` | CORS allowed origins (comma-separated) | e.g., `https://myapp.com,https://app.myapp.com` ⚠️ **Never use `*` in production!** |
 | `firestore-database-id` | Firestore database ID | e.g., `learnforge-staging` or `(default)` |
 
 **Important:** Grant Cloud Run service account access to these secrets.

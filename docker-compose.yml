@@ -11,7 +11,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8080
-      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-*}
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-http://localhost:3000,http://localhost:8000}
       - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
       - FIRESTORE_DATABASE_ID=${FIRESTORE_DATABASE_ID:-learnforge-staging}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/firebase_key.json

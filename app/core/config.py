@@ -28,8 +28,11 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8080
 
-    # CORS - loaded from Secret Manager in production (as file)
-    ALLOW_ORIGINS: str = _read_secret("ALLOW_ORIGINS", "*")
+    # CORS - loaded from Secret Manager in production
+    # Default to localhost only for security - set proper origins in production
+    ALLOW_ORIGINS: str = _read_secret(
+        "ALLOW_ORIGINS", "http://localhost:3000,http://localhost:8000"
+    )
 
     # Firebase - credentials file path (works for both local and Cloud Run)
     GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv(
