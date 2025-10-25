@@ -159,10 +159,7 @@ class EnrollmentService:
                 detail=f"Enrollment not found for user '{user_id}' in mission '{mission_id}'.",
             )
 
-        doc_ref.update({
-            "last_accessed_at": datetime.today(),
-            "updated_at": datetime.today()
-        })
+        doc_ref.update({"last_accessed_at": datetime.today(), "updated_at": datetime.today()})
         updated_doc = doc_ref.get()
         return Enrollment(**updated_doc.to_dict())
 
@@ -237,9 +234,7 @@ class EnrollmentService:
             )
 
         checkpoint_progress_docs = (
-            self.collection.document(enrollment_id)
-            .collection("checkpoint_progress")
-            .get()
+            self.collection.document(enrollment_id).collection("checkpoint_progress").get()
         )
 
         return [CheckpointProgress(**doc.to_dict()) for doc in checkpoint_progress_docs]
@@ -271,9 +266,7 @@ class EnrollmentService:
         return CheckpointProgress(**updated_doc.to_dict())
 
     @handle_firestore_exceptions
-    def delete_checkpoint_progress(
-        self, user_id: str, mission_id: str, checkpoint_id: str
-    ) -> dict:
+    def delete_checkpoint_progress(self, user_id: str, mission_id: str, checkpoint_id: str) -> dict:
         """Delete a checkpoint progress entry."""
         enrollment_id = self._generate_enrollment_id(user_id, mission_id)
         checkpoint_progress_ref = (

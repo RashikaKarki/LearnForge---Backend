@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class CheckpointProgress(BaseModel):
     """Model for checkpoint progress sub-collection."""
+
     checkpoint_id: str = Field(..., description="ID of the checkpoint")
     completed: bool = Field(default=False, description="Whether the checkpoint is completed")
     created_at: datetime = Field(default_factory=datetime.today)
@@ -13,12 +14,14 @@ class CheckpointProgress(BaseModel):
 
 class CheckpointProgressCreate(BaseModel):
     """Schema for creating checkpoint progress."""
+
     checkpoint_id: str
     completed: bool = False
 
 
 class CheckpointProgressUpdate(BaseModel):
     """Schema for updating checkpoint progress."""
+
     completed: bool
 
 
