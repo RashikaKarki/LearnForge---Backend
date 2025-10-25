@@ -12,9 +12,7 @@ class Mission(BaseModel):
     skills: Optional[list[str]] = Field(
         default_factory=list, description="List of skills associated with the mission"
     )
-    is_public: bool = Field(
-        default=True, description="Whether the mission is publicly accessible"
-    )
+    is_public: bool = Field(default=True, description="Whether the mission is publicly accessible")
     created_at: datetime = Field(default_factory=datetime.today)
     updated_at: datetime = Field(default_factory=datetime.today)
 

@@ -14,11 +14,7 @@ from tests.mocks.firestore import FirestoreMocks
 @pytest.fixture
 def valid_enrollment_create_data():
     """Test data for creating an enrollment."""
-    return EnrollmentCreate(
-        user_id="user123",
-        mission_id="mission123",
-        progress=0.0
-    )
+    return EnrollmentCreate(user_id="user123", mission_id="mission123", progress=0.0)
 
 
 @pytest.fixture
@@ -39,25 +35,25 @@ def test_create_enrollment_success(valid_enrollment_create_data):
     enrollments_collection = FirestoreMocks.collection_empty()
     users_collection = MagicMock()
     missions_collection = MagicMock()
-    
+
     # Mock user and mission exist
     user_doc = FirestoreMocks.document_exists("user123", {"id": "user123"})
     mission_doc = FirestoreMocks.document_exists("mission123", {"id": "mission123"})
     users_collection.document.return_value.get.return_value = user_doc
     missions_collection.document.return_value.get.return_value = mission_doc
-    
+
     # Mock enrollment doesn't exist yet
     enrollment_doc = FirestoreMocks.document_not_found()
     enrollments_collection.document.return_value.get.return_value = enrollment_doc
     enrollments_collection.document.return_value.set = MagicMock()
-    
+
     db = MagicMock()
     db.collection.side_effect = lambda name: {
         "enrollments": enrollments_collection,
         "users": users_collection,
-        "missions": missions_collection
+        "missions": missions_collection,
     }[name]
-    
+
     service = EnrollmentService(db)
     enrollment = service.create_enrollment(valid_enrollment_create_data)
 
@@ -72,7 +68,7 @@ def test_create_enrollment_user_not_found_raises_404(valid_enrollment_create_dat
     users_collection = MagicMock()
     user_doc = FirestoreMocks.document_not_found()
     users_collection.document.return_value.get.return_value = user_doc
-    
+
     db = MagicMock()
     db.collection.return_value = users_collection
     service = EnrollmentService(db)
@@ -89,20 +85,20 @@ def test_create_enrollment_mission_not_found_raises_404(valid_enrollment_create_
     enrollments_collection = MagicMock()
     users_collection = MagicMock()
     missions_collection = MagicMock()
-    
+
     # User exists, mission doesn't
     user_doc = FirestoreMocks.document_exists("user123", {"id": "user123"})
     mission_doc = FirestoreMocks.document_not_found()
     users_collection.document.return_value.get.return_value = user_doc
     missions_collection.document.return_value.get.return_value = mission_doc
-    
+
     db = MagicMock()
     db.collection.side_effect = lambda name: {
         "enrollments": enrollments_collection,
         "users": users_collection,
-        "missions": missions_collection
+        "missions": missions_collection,
     }[name]
-    
+
     service = EnrollmentService(db)
 
     with pytest.raises(HTTPException) as exc:
@@ -117,24 +113,26 @@ def test_create_enrollment_already_exists_raises_400(valid_enrollment_create_dat
     enrollments_collection = MagicMock()
     users_collection = MagicMock()
     missions_collection = MagicMock()
-    
+
     # User and mission exist
     user_doc = FirestoreMocks.document_exists("user123", {"id": "user123"})
     mission_doc = FirestoreMocks.document_exists("mission123", {"id": "mission123"})
     users_collection.document.return_value.get.return_value = user_doc
     missions_collection.document.return_value.get.return_value = mission_doc
-    
+
     # Enrollment already exists
-    enrollment_doc = FirestoreMocks.document_exists("user123_mission123", {"id": "user123_mission123"})
+    enrollment_doc = FirestoreMocks.document_exists(
+        "user123_mission123", {"id": "user123_mission123"}
+    )
     enrollments_collection.document.return_value.get.return_value = enrollment_doc
-    
+
     db = MagicMock()
     db.collection.side_effect = lambda name: {
         "enrollments": enrollments_collection,
         "users": users_collection,
-        "missions": missions_collection
+        "missions": missions_collection,
     }[name]
-    
+
     service = EnrollmentService(db)
 
     with pytest.raises(HTTPException) as exc:
@@ -149,7 +147,7 @@ def test_get_enrollment_found_returns_enrollment(existing_enrollment):
     collection = MagicMock()
     enrollment_doc = FirestoreMocks.document_exists("user123_mission123", existing_enrollment)
     collection.document.return_value.get.return_value = enrollment_doc
-    
+
     db = MagicMock()
     db.collection.return_value = collection
     service = EnrollmentService(db)
@@ -165,7 +163,7 @@ def test_get_enrollment_not_found_raises_404():
     collection = MagicMock()
     enrollment_doc = FirestoreMocks.document_not_found()
     collection.document.return_value.get.return_value = enrollment_doc
-    
+
     db = MagicMock()
     db.collection.return_value = collection
     service = EnrollmentService(db)
@@ -182,9 +180,11 @@ def test_update_enrollment_success(existing_enrollment):
     doc_ref = collection.document.return_value
     doc_ref.get.side_effect = [
         FirestoreMocks.document_exists("user123_mission123", existing_enrollment),
-        FirestoreMocks.document_exists("user123_mission123", {**existing_enrollment, "progress": 75.0})
+        FirestoreMocks.document_exists(
+            "user123_mission123", {**existing_enrollment, "progress": 75.0}
+        ),
     ]
-    
+
     db = MagicMock()
     db.collection.return_value = collection
     service = EnrollmentService(db)
@@ -201,7 +201,7 @@ def test_update_enrollment_not_found_raises_404():
     collection = MagicMock()
     doc_ref = collection.document.return_value
     doc_ref.get.return_value = FirestoreMocks.document_not_found()
-    
+
     db = MagicMock()
     db.collection.return_value = collection
     service = EnrollmentService(db)
@@ -216,8 +216,10 @@ def test_delete_enrollment_success(existing_enrollment):
     """Should delete enrollment successfully."""
     collection = MagicMock()
     doc_ref = collection.document.return_value
-    doc_ref.get.return_value = FirestoreMocks.document_exists("user123_mission123", existing_enrollment)
-    
+    doc_ref.get.return_value = FirestoreMocks.document_exists(
+        "user123_mission123", existing_enrollment
+    )
+
     db = MagicMock()
     db.collection.return_value = collection
     service = EnrollmentService(db)
@@ -233,7 +235,7 @@ def test_delete_enrollment_not_found_raises_404():
     collection = MagicMock()
     doc_ref = collection.document.return_value
     doc_ref.get.return_value = FirestoreMocks.document_not_found()
-    
+
     db = MagicMock()
     db.collection.return_value = collection
     service = EnrollmentService(db)
@@ -248,7 +250,7 @@ def test_get_enrollments_by_user(existing_enrollment):
     """Should return all enrollments for a user."""
     enrollments_data = [
         existing_enrollment,
-        {**existing_enrollment, "id": "user123_mission456", "mission_id": "mission456"}
+        {**existing_enrollment, "id": "user123_mission456", "mission_id": "mission456"},
     ]
     collection = FirestoreMocks.collection_with_items(enrollments_data)
     db = MagicMock()
@@ -265,7 +267,7 @@ def test_get_enrollments_by_mission(existing_enrollment):
     """Should return all enrollments for a mission."""
     enrollments_data = [
         existing_enrollment,
-        {**existing_enrollment, "id": "user456_mission123", "user_id": "user456"}
+        {**existing_enrollment, "id": "user456_mission123", "user_id": "user456"},
     ]
     collection = FirestoreMocks.collection_with_items(enrollments_data)
     db = MagicMock()
@@ -284,9 +286,9 @@ def test_update_last_accessed(existing_enrollment):
     doc_ref = collection.document.return_value
     doc_ref.get.side_effect = [
         FirestoreMocks.document_exists("user123_mission123", existing_enrollment),
-        FirestoreMocks.document_exists("user123_mission123", existing_enrollment)
+        FirestoreMocks.document_exists("user123_mission123", existing_enrollment),
     ]
-    
+
     db = MagicMock()
     db.collection.return_value = collection
     service = EnrollmentService(db)
