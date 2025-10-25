@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     GOOGLE_API_KEY: str = _read_secret("GOOGLE_API_KEY", "")
 
     # Paths
-    AGENTS_DIR: str = "app/agents"
+    AGENTS_DIR: str = "agents"
 
     @property
     def cors_origins(self) -> list[str]:
@@ -54,3 +54,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# CRITICAL: Set GOOGLE_API_KEY in os.environ for google-genai library
+# The google-genai library (used by Google ADK) expects the API key in the environment
+if settings.GOOGLE_API_KEY:
+    os.environ["GOOGLE_API_KEY"] = settings.GOOGLE_API_KEY

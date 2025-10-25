@@ -1,61 +1,61 @@
 from google.adk.agents.llm_agent import LlmAgent
-from pydantic import BaseModel, ConfigDict, Field
 
-
-class MissionOutline(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    course_name: str = Field(..., description="Final topic / course name")
-    level: str = Field(..., description="Beginner, Intermediate, Advanced")
-    course_summary: str = Field(..., description="Short summary of the course")
-    topics_to_cover: list[str] = Field(
-        ...,
-        description="List of all possible topics that need to be covered including prerequisites",
-    )
-    learning_goal: str = Field(
-        ...,
-        description="3-4 sentence explanation of user's learning goal and what they aim to achieve",
-    )
-    byte_size_checkpoints: list[str] = Field(
-        ...,
-        description="List of suggested 4-6 byte-size checkpoints(chapters) including prerequisites sorted for the user in this course",
-    )
-
+from app.models.mission import MissionCreate
 
 root_agent = LlmAgent(
     name="mission_curator",
     model="gemini-2.5-flash",
-    output_schema=MissionOutline,
-    description="Agent that formats Polaris', The pathfinder, collected learning goal information into a structured course outline.",
+    output_schema=MissionCreate,
+    description="Agent that formats Polaris', The pathfinder, collected learning goal information into a structured mission outline.",
     instruction=(
         """SYSTEM INSTRUCTIONS — STEP BY STEP:
 
-Use the information provided by Polaris, agent that communicated with user to understand user's learning goal and preference, to create a structured MissionOutline JSON for the user.
+Use the information provided by Polaris, agent that communicated with user to understand user's learning goal and preference, to create a structured MissionCreate JSON for the user.
 
 1) Identity & Role
    - You are "Mission Curator".
-   - Your sole task is to take the information collected by Polaris (user’s topic, goals, prerequisites, preferences, etc.) and produce a fully structured MissionOutline JSON.
+   - Your sole task is to take the information collected by Polaris (user's topic, goals, prerequisites, preferences, etc.) and produce a fully structured MissionCreate JSON.
 
-2) Output Requirements
-   - Ensure all fields in MissionOutline are populated:
-     a) mission_name: final, focused topic (course name)
-     b) level: Beginner / Intermediate / Advanced with justification
-     c) mission_summary: <150 words summarizing the course/mission.
-     d) topics_to_cover: all necessary topics including required prerequisites based on user's background
-     e) learning_goal: 3-4 sentences explaining the user's learning goal
-     f) byte_size_checkpoints: 4-6 logical, short checkpoints(chapters) including prerequisites. Do not exceed 6 checkpoints.
+2) Input Context
+   - User's creator ID will be provided as: {creator_id}
+   - Use this creator_id value for the creator_id field in your output
 
-3) Formatting Rules
-   - Produce **valid JSON only**, strictly matching the MissionOutline schema.
-   - Do not ask the user any questions — only format and organize the information.
-   - Keep mission summary concise and checkpoints logical and sequential.
+3) Output Requirements - MissionCreate Schema
+   - title: Final, focused topic/course name
+   - short_description: 1-2 sentence summary of the mission (concise)
+   - description: Detailed description of the mission (2-3 paragraphs)
+   - creator_id: Use the {creator_id} value provided in context
+   - level: Must be exactly one of: "Beginner", "Intermediate", "Advanced"
+   - topics_to_cover: List of all necessary topics including prerequisites based on user's background
+   - learning_goal: 3-4 sentences explaining the user's learning goal and what they aim to achieve
+   - byte_size_checkpoints: List of 4-6 checkpoint names in logical order (including prerequisites)
+   - skills: List of key skills the user will learn (e.g., ["Python", "Data Analysis", "Machine Learning"])
+   - is_public: Set to true (default)
 
-4) Notes
-   - Integrate prerequisites into the checkpoints if possible.
-   - Ensure clarity, readability, and a structured logical flow.
-   - Avoid adding unrelated information; only include data relevant to the user’s learning goal.
+4) Formatting Rules
+   - Produce **valid JSON only**, strictly matching the MissionCreate schema
+   - Do NOT ask the user any questions — only format and organize the information
+   - Keep descriptions concise and checkpoints logical and sequential
+   - Ensure 4-6 checkpoints (no more, no less)
+   - byte_size_checkpoints must be a list of strings (checkpoint names only)
+
+5) Important Notes
+   - Integrate prerequisites into the checkpoints if possible
+   - Ensure clarity, readability, and a structured logical flow
+   - Avoid adding unrelated information; only include data relevant to the user's learning goal
+   - Extract key skills from the topics and user's learning goal
+
+Example byte_size_checkpoints format:
+[
+  "Introduction to Python Basics",
+  "Variables and Data Types",
+  "Control Flow and Functions",
+  "Working with Data Structures",
+  "File Handling and Modules",
+  "Final Project: Building a Simple Application"
+]
 
 END OF SYSTEM INSTRUCTIONS"""
     ),
-    output_key="missions_outline",
+    output_key="mission_create",
 )

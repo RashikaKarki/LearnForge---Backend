@@ -5,7 +5,7 @@ from datetime import datetime
 import pytest
 from pydantic import ValidationError
 
-from app.models.checkpoint import Checkpoint, CheckpointCreate, CheckpointUpdate
+from app.models.checkpoint import Checkpoint, CheckpointCreate, CheckpointUpdate, QuizQuestion
 
 
 def test_checkpoint_model_valid_creation():
@@ -28,7 +28,7 @@ def test_checkpoint_model_valid_creation():
 
 
 def test_checkpoint_model_sources_defaults_to_empty_list():
-    """Should default sources to empty list when not provided."""
+    """Should default sources to empty dict when not provided."""
     checkpoint = Checkpoint(
         id="checkpoint123",
         mission_id="mission123",
@@ -92,13 +92,13 @@ def test_checkpoint_create_valid():
         title="Introduction",
         content="Content here",
         order=1,
-        sources=["https://example.com"],
+        sources={"Example Source": "https://example.com"},
     )
 
     assert checkpoint_create.title == "Introduction"
     assert checkpoint_create.content == "Content here"
     assert checkpoint_create.order == 1
-    assert checkpoint_create.sources == ["https://example.com"]
+    assert checkpoint_create.sources == {"Example Source": "https://example.com"}
 
 
 @pytest.mark.parametrize(
@@ -153,3 +153,152 @@ def test_checkpoint_update_order_only():
     assert checkpoint_update.title is None
     assert checkpoint_update.content is None
     assert checkpoint_update.order == 3
+
+
+# QuizQuestion Tests
+
+
+def test_quiz_question_valid_creation():
+    """Should create valid quiz question with all required fields."""
+    quiz = QuizQuestion(
+        question="What is Python?",
+        options={
+            "a": "A programming language",
+            "b": "A type of snake",
+            "c": "A web framework",
+            "d": "An operating system",
+        },
+        right_option_key="a",
+        explanation="Python is a high-level, interpreted programming language.",
+    )
+
+    assert quiz.question == "What is Python?"
+    assert len(quiz.options) == 4
+    assert quiz.options["a"] == "A programming language"
+    assert quiz.right_option_key == "a"
+    assert "programming language" in quiz.explanation
+
+
+def test_quiz_question_invalid_option_key_raises():
+    """Should raise ValidationError when right_option_key is not a, b, c, or d."""
+    with pytest.raises(ValidationError) as exc:
+        QuizQuestion(
+            question="Test?",
+            options={"a": "1", "b": "2", "c": "3", "d": "4"},
+            right_option_key="e",  # Invalid
+            explanation="Test",
+        )
+
+    assert "right_option_key" in str(exc.value)
+
+
+def test_quiz_question_uppercase_option_key_raises():
+    """Should raise ValidationError when right_option_key is uppercase."""
+    with pytest.raises(ValidationError) as exc:
+        QuizQuestion(
+            question="Test?",
+            options={"a": "1", "b": "2", "c": "3", "d": "4"},
+            right_option_key="A",  # Invalid - must be lowercase
+            explanation="Test",
+        )
+
+    assert "right_option_key" in str(exc.value)
+
+
+def test_quiz_question_extra_fields_forbidden():
+    """Should reject extra fields due to ConfigDict(extra='forbid')."""
+    with pytest.raises(ValidationError) as exc:
+        QuizQuestion(
+            question="Test?",
+            options={"a": "1", "b": "2", "c": "3", "d": "4"},
+            right_option_key="a",
+            explanation="Test",
+            extra_field="Not allowed",
+        )
+
+    assert "extra_field" in str(exc.value)
+
+
+def test_checkpoint_with_quiz_questions():
+    """Should create checkpoint with quiz questions."""
+    quiz = QuizQuestion(
+        question="What is Python?",
+        options={
+            "a": "A programming language",
+            "b": "A snake",
+            "c": "A framework",
+            "d": "An OS",
+        },
+        right_option_key="a",
+        explanation="Python is a programming language.",
+    )
+
+    checkpoint = Checkpoint(
+        id="checkpoint123",
+        mission_id="mission123",
+        title="Python Basics",
+        content="Learn Python",
+        order=1,
+        sources={"Python Official": "https://python.org"},
+        quiz_questions=[quiz],
+    )
+
+    assert len(checkpoint.quiz_questions) == 1
+    assert checkpoint.quiz_questions[0].question == "What is Python?"
+    assert checkpoint.quiz_questions[0].right_option_key == "a"
+
+
+def test_checkpoint_quiz_questions_defaults_to_empty_list():
+    """Should default quiz_questions to empty list when not provided."""
+    checkpoint = Checkpoint(
+        id="checkpoint123",
+        mission_id="mission123",
+        title="Test",
+        content="Test",
+        order=1,
+    )
+
+    assert checkpoint.quiz_questions == []
+
+
+def test_checkpoint_create_with_quiz_questions():
+    """Should create CheckpointCreate with quiz questions."""
+    quiz = QuizQuestion(
+        question="What is AI?",
+        options={
+            "a": "Artificial Intelligence",
+            "b": "Automated Input",
+            "c": "Advanced Internet",
+            "d": "None of the above",
+        },
+        right_option_key="a",
+        explanation="AI stands for Artificial Intelligence.",
+    )
+
+    checkpoint_create = CheckpointCreate(
+        title="AI Introduction",
+        content="Introduction to AI concepts",
+        order=1,
+        sources={"AI Wiki": "https://example.com"},
+        quiz_questions=[quiz],
+    )
+
+    assert checkpoint_create.title == "AI Introduction"
+    assert len(checkpoint_create.quiz_questions) == 1
+    assert checkpoint_create.quiz_questions[0].question == "What is AI?"
+
+
+def test_checkpoint_update_with_quiz_questions():
+    """Should allow updating quiz_questions."""
+    quiz = QuizQuestion(
+        question="Updated question?",
+        options={"a": "Yes", "b": "No", "c": "Maybe", "d": "Not sure"},
+        right_option_key="a",
+        explanation="It's yes.",
+    )
+
+    checkpoint_update = CheckpointUpdate(quiz_questions=[quiz])
+
+    assert checkpoint_update.title is None
+    assert len(checkpoint_update.quiz_questions) == 1
+    assert checkpoint_update.quiz_questions[0].question == "Updated question?"

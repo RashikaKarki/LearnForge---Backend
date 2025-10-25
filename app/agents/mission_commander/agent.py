@@ -1,7 +1,7 @@
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool, ToolContext
 
-from .mission_director.agent import root_agent as mission_director_agent
+from .mission_curator.agent import root_agent as mission_curator_agent
 from .pathfinder.agent import root_agent as pathfinder_agent
 
 
@@ -12,16 +12,16 @@ def start_session_with_pathfinder(tool_context: ToolContext) -> str:
     return "Transferred to Pathfinder to begin learning journey."
 
 
-def transfer_to_mission_director(tool_context: ToolContext) -> str:
-    """Transfers to Mission Director (which handles both Curator and Weaver sequentially)."""
-    print("Orchestrator: Transferring to Mission Director...")
-    tool_context.actions.transfer_to_agent = mission_director_agent.name
-    return "Transferred to Mission Director for roadmap creation and content generation."
+def transfer_to_mission_curator(tool_context: ToolContext) -> str:
+    """Transfers to Mission Curator (which handles both Curator and Weaver sequentially)."""
+    print("Orchestrator: Transferring to Mission Curator...")
+    tool_context.actions.transfer_to_agent = mission_curator_agent.name
+    return "Transferred to Mission Curator for roadmap creation and content generation."
 
 
 # Define tools
 start_session_tool = FunctionTool(func=start_session_with_pathfinder)
-transfer_to_mission_director_tool = FunctionTool(func=transfer_to_mission_director)
+transfer_to_mission_curator_tool = FunctionTool(func=transfer_to_mission_curator)
 
 
 root_agent = LlmAgent(
@@ -29,8 +29,8 @@ root_agent = LlmAgent(
     model="gemini-2.5-flash",
     description=(
         "The Orchestrator manages the learning journey by coordinating Pathfinder "
-        "(goal clarification) and Mission Director (roadmap + content generation). "
-        "Mission Director automatically handles both curator and weaver phases sequentially."
+        "(goal clarification) and Mission Curator (roadmap + content generation). "
+        "Mission Curator automatically handles both curator and weaver phases sequentially."
     ),
     instruction=(
         """
@@ -54,15 +54,12 @@ root_agent = LlmAgent(
            - A course outline or learning path is presented and acknowledged
 
            IMMEDIATELY when detected:
-           - Call `transfer_to_mission_director` tool WITHOUT asking the user
+           - Call `transfer_to_mission_curator` tool WITHOUT asking the user
            - Do NOT summarize or comment - just transfer
-           - Mission Director will automatically handle BOTH curator and weaver phases
+           - Mission Curator will automatically handle BOTH curator and weaver phases
 
-        3. MISSION DIRECTOR PHASE
-           - Mission Director automatically runs Mission Curator first, then Mission Content Weaver
-           - You do NOT need to monitor or transfer between curator and weaver
-           - The SequentialAgent handles that automatically
-           - Do NOT interfere unless explicitly requested by the user to change agents
+        3. MISSION CURATOR PHASE
+           - Mission Curator will create the learning roadmap
 
         TRANSFER RULES (CRITICAL)
 
@@ -72,7 +69,7 @@ root_agent = LlmAgent(
         - Wait for explicit user permission after completion signals
         - Have conversations with the user
         - Create any learning content yourself
-        - Try to manually manage curator → weaver transition (Mission Director does this)
+        - Try to manually manage curator → weaver transition (Mission Curator does this)
 
         ALWAYS DO THIS:
         - Detect Pathfinder completion signals automatically
@@ -80,11 +77,11 @@ root_agent = LlmAgent(
         - Let each agent handle their own conversations
         - Stay silent during agent operations
         - Only intervene if explicitly asked to switch agents
-        - Trust Mission Director to handle the curator → weaver flow
+        - Trust Mission Curator to handle the curator → weaver flow
 
         COMPLETION SIGNAL
 
-        When Pathfinder completes immediately transfer to Mission Director when you see any of these signals:
+        When Pathfinder completes immediately transfer to Mission Curator when you see any of these signals:
         - Immediately after user confirms the learning goal is correct
         - When Pathfinder has summarized the learning path and user agrees
 
@@ -95,7 +92,7 @@ root_agent = LlmAgent(
     ),
     tools=[
         start_session_tool,
-        transfer_to_mission_director_tool,
+        transfer_to_mission_curator_tool,
     ],
-    sub_agents=[pathfinder_agent, mission_director_agent],
+    sub_agents=[pathfinder_agent, mission_curator_agent],
 )
