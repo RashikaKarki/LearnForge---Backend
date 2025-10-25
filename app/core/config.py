@@ -12,14 +12,16 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8080
 
-    # CORS
+    # CORS - loaded from Secret Manager in production
     ALLOW_ORIGINS: str = os.getenv("ALLOW_ORIGINS", "*")
 
-    # Firebase
+    # Firebase - credentials loaded from Secret Manager in production
     GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv(
-        "GOOGLE_APPLICATION_CREDENTIALS", "serviceAccountKey.json"
+        "GOOGLE_APPLICATION_CREDENTIALS", "firebase_key.json"
     )
-    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "")
+
+    # Google API Key - loaded from Secret Manager in production
+    GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
 
     # Paths
     AGENTS_DIR: str = "app/agents"

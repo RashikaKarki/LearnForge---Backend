@@ -53,11 +53,8 @@ jobs:
             --timeout 300 \
             --port 8080 \
             --cpu-boost \
-            --set-env-vars "FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" \
-            --set-env-vars "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" \
-            --set-env-vars "ALLOW_ORIGINS=${{ secrets.ALLOW_ORIGINS }}" \
             --set-env-vars "GOOGLE_GENAI_USE_VERTEXAI=FALSE" \
-            --set-secrets "GOOGLE_APPLICATION_CREDENTIALS=firebase-service-account-key:latest"
+            --set-secrets "GOOGLE_APPLICATION_CREDENTIALS=firebase-service-account-key:latest,GOOGLE_API_KEY=google-api-key:latest,ALLOW_ORIGINS=allow-origins:latest"
 
       - name: Show deployment URL
         run: |

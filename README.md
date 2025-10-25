@@ -86,25 +86,74 @@ Once running, visit:
 
 ### Setup GitHub Deployment
 
-1. Add GitHub secrets (Settings → Secrets and variables → Actions):
-   
-   **GCP Configuration:**
-   - `GCP_PROJECT_ID` - Your Google Cloud project ID
-   - `GCP_REGION` - The GCP region for deployment (e.g., us-central1)
-   - `GCP_SA_KEY` - Service account JSON key with Cloud Run and Artifact Registry permissions
-   
-   **Cloud Run & Artifact Registry:**
-   - `CLOUD_RUN_SERVICE` - Name of your Cloud Run service
-   - `ARTIFACT_REGISTRY_REPO` - Name of your Artifact Registry repository
-   
-   **Application Configuration:**
-   - `FIREBASE_PROJECT_ID` - Your Firebase project ID
-   - `GOOGLE_API_KEY` - Google API key for Gemini/GenAI
-   - `ALLOW_ORIGINS` - CORS allowed origins (comma-separated)
+#### 1. Create GitHub Secrets (Deployment Credentials)
 
-2. Ensure the Artifact Registry repository exists in GCP (must be created manually)
+Add these secrets in GitHub (Settings → Secrets and variables → Actions):
 
-3. Push to `main` to deploy
+| Secret Name | Description | Example |
+|------------|-------------|---------|
+| `GCP_PROJECT_ID` | Your Google Cloud project ID | `my-project-123` |
+| `GCP_REGION` | GCP region for deployment | `us-central1` |
+| `GCP_SA_KEY` | Service account JSON key for deployment | `{"type": "service_account"...}` |
+| `CLOUD_RUN_SERVICE` | Name of your Cloud Run service | `learnforge-backend` |
+| `ARTIFACT_REGISTRY_REPO` | Artifact Registry repository name | `my-app-repo` |
+
+#### 2. Create Google Cloud Secrets (Runtime Credentials)
+
+These are used by your **running application** on Cloud Run. Create them in [Secret Manager](https://console.cloud.google.com/security/secret-manager):
+
+| Secret Name | Description | How to Create |
+|------------|-------------|---------------|
+| `firebase-service-account-key` | Firebase service account JSON | Upload `firebase_key.json` |
+| `google-api-key` | Google API key for Gemini/GenAI | Paste API key value |
+| `allow-origins` | CORS allowed origins | e.g., `https://myapp.com,http://localhost:8000` |
+
+**Important:** Grant Cloud Run service account access to these secrets:
+
+```bash
+# Get your project number
+PROJECT_NUMBER=$(gcloud projects describe YOUR_PROJECT_ID --format='value(projectNumber)')
+
+# Grant access to all secrets
+for SECRET in firebase-service-account-key google-api-key allow-origins; do
+  gcloud secrets add-iam-policy-binding $SECRET \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+done
+```
+
+Or use the Console:
+1. Click on each secret → **PERMISSIONS** tab → **+ GRANT ACCESS**
+2. Principal: `PROJECT_NUMBER-compute@developer.gserviceaccount.com`
+3. Role: **Secret Manager Secret Accessor**
+
+#### 3. Deploy
+
+Ensure the Artifact Registry repository exists, then push to `main`:
+
+```bash
+# Create Artifact Registry repo (one-time setup)
+gcloud artifacts repositories create YOUR_REPO_NAME \
+    --repository-format=docker \
+    --location=YOUR_REGION
+
+# Deploy
+git push origin main
+```
+
+## Credential Architecture
+
+### Two Types of Credentials
+
+**GitHub Secrets** (for CI/CD deployment):
+- Used by GitHub Actions to **deploy** your app
+- Service account needs: `roles/run.admin`, `roles/artifactregistry.writer`, `roles/iam.serviceAccountUser`
+
+**Google Cloud Secrets** (for runtime):
+- Used by your **running app** on Cloud Run
+- Cloud Run service account needs: `roles/secretmanager.secretAccessor`
+
+> **Key Point:** The service account that deploys your app is different from the one that runs it!
 
 
 ## Tech Stack
