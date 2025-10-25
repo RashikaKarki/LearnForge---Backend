@@ -16,7 +16,7 @@ def _read_secret(env_var: str, default: str = "") -> str:
         try:
             with open(value) as f:
                 return f.read().strip()
-        except Exception as e:
+        except Exception:
             return default
 
     return value
