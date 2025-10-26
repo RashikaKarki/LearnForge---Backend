@@ -3,7 +3,7 @@
 import json
 import logging
 from enum import Enum
-from typing import Any, Dict, Literal, Optional, Union
+from typing import Any, Literal
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from google.adk.runners import Runner
@@ -52,7 +52,7 @@ class PingMessage(BaseModel):
     type: Literal[MessageType.PING] = MessageType.PING
 
 
-ClientMessage = Union[UserMessage, PingMessage]
+ClientMessage = UserMessage | PingMessage
 
 
 # Server → Client Messages
@@ -82,8 +82,8 @@ class MissionCreatedMessage(BaseModel):
     """Final message with created mission details"""
 
     type: Literal[MessageType.MISSION_CREATED] = MessageType.MISSION_CREATED
-    mission: Dict[str, Any]
-    enrollment: Dict[str, Any]
+    mission: dict[str, Any]
+    enrollment: dict[str, Any]
     message: str
 
 
@@ -100,14 +100,14 @@ class ErrorMessage(BaseModel):
     message: str
 
 
-ServerMessage = Union[
-    ConnectedMessage,
-    AgentMessage,
-    AgentHandoverMessage,
-    MissionCreatedMessage,
-    PongMessage,
-    ErrorMessage,
-]
+ServerMessage = (
+    ConnectedMessage
+    | AgentMessage
+    | AgentHandoverMessage
+    | MissionCreatedMessage
+    | PongMessage
+    | ErrorMessage
+)
 
 
 # ============================================================================
@@ -119,8 +119,8 @@ class ConnectionManager:
     """Manages WebSocket connections and agent sessions"""
 
     def __init__(self):
-        self.active_connections: Dict[str, WebSocket] = {}
-        self.agent_sessions: Dict[str, Session] = {}
+        self.active_connections: dict[str, WebSocket] = {}
+        self.agent_sessions: dict[str, Session] = {}
         self.session_service = InMemorySessionService()
         self.runner = Runner(
             agent=root_agent, app_name="mission-commander", session_service=self.session_service
@@ -152,7 +152,7 @@ class ConnectionManager:
         if websocket:
             await websocket.send_json(message.model_dump(mode="json"))
 
-    def get_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str) -> Session | None:
         """Retrieve agent session by ID"""
         return self.agent_sessions.get(session_id)
 
@@ -166,8 +166,8 @@ manager = ConnectionManager()
 
 
 async def validate_session(
-    websocket: WebSocket, session_id: str, token: Optional[str]
-) -> Optional[tuple[SessionLogService, str]]:
+    websocket: WebSocket, session_id: str, token: str | None
+) -> tuple[SessionLogService, str] | None:
     """
     Validate session authenticity and status.
     Returns (SessionLogService, user_id) if valid, None otherwise.

@@ -11,7 +11,7 @@ def setup_logging():
         client = gcp_logging.Client()
         client.setup_logging()
         logging.getLogger().setLevel(logging.INFO)
-    except Exception as e:
+    except Exception:
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",

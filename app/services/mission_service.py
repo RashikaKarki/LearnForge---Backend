@@ -62,7 +62,7 @@ class MissionService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create enrollment: {str(e)}",
-            )
+            ) from e
 
     @handle_firestore_exceptions
     def get_mission(self, mission_id: str) -> Mission:

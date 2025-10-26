@@ -247,7 +247,6 @@ def test_get_missions_by_creator_and_visibility():
 
 def test_create_mission_with_enrollment_success(valid_mission_create_data):
     """Should create mission and auto-enroll creator."""
-    from app.services.enrollment_service import EnrollmentService
 
     # Mock mission collection
     mission_collection = FirestoreMocks.collection_empty()
