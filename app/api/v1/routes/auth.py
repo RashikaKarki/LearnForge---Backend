@@ -48,7 +48,7 @@ async def create_session(request: CreateSessionRequest, response: Response):
             key=SESSION_COOKIE_NAME,
             value=session_cookie,
             httponly=True,
-            secure=False,
+            secure=True,
             samesite="lax",
             max_age=SESSION_MAX_AGE_SECONDS,
             path="/",
