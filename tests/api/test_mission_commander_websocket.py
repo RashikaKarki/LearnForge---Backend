@@ -206,6 +206,22 @@ async def test_validate_session_missing_token(mock_websocket):
     mock_websocket.close.assert_called_once()
 
 
+async def test_validate_session_token_not_present_anywhere(mock_websocket):
+    """Should close connection when token is completely absent (not in query, cookie, or header)."""
+    mock_websocket.query_params = {}
+    mock_websocket.cookies = {}
+    mock_websocket.headers = {}
+
+    result = await validate_session(mock_websocket, "session123", None)
+
+    assert result is None
+    mock_websocket.close.assert_called_once()
+    close_call_args = mock_websocket.close.call_args
+    if close_call_args and close_call_args[1]:
+        assert "code" in close_call_args[1]
+        assert close_call_args[1]["code"] == 1008
+
+
 async def test_validate_session_inactive_session(mock_websocket):
     """Should close connection when session is inactive."""
     inactive_session = SessionLog(
