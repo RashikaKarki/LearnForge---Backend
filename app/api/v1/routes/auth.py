@@ -49,7 +49,7 @@ async def create_session(request: CreateSessionRequest, response: Response):
             value=session_cookie,
             httponly=True,
             secure=True,
-            samesite="lax",
+            samesite="none",
             max_age=SESSION_MAX_AGE_SECONDS,
             path="/",
         )
@@ -86,7 +86,7 @@ async def logout(request: Request, response: Response):
             pass
 
     response.delete_cookie(
-        key=SESSION_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="lax"
+        key=SESSION_COOKIE_NAME, path="/", httponly=True, secure=True, samesite="none"
     )
 
     return SessionResponse(message="Logged out successfully", uid=None)
@@ -114,7 +114,7 @@ async def refresh_session(request: Request, response: Response):
             value=new_session_cookie,
             httponly=True,
             secure=True,
-            samesite="lax",
+            samesite="none",
             max_age=SESSION_MAX_AGE_SECONDS,
             path="/",
         )
