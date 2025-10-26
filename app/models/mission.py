@@ -16,7 +16,8 @@ class Mission(BaseModel):
     topics_to_cover: list[str] = Field(..., description="List of topics covered in the mission")
     learning_goal: str = Field(..., description="User's learning goal and objectives")
     learning_style: list[str] | None = Field(
-        default_factory=list, description="User's preferred learning styles (e.g., examples, metaphors, analogies, step-by-step)"
+        default_factory=list,
+        description="User's preferred learning styles (e.g., examples, metaphors, analogies, step-by-step)",
     )
     byte_size_checkpoints: list[str] = Field(..., description="List of checkpoint names in order")
     skills: list[str] | None = Field(
@@ -40,7 +41,8 @@ class MissionCreate(BaseModel):
     )
     learning_goal: str = Field(..., description="User's learning goal and objectives")
     learning_style: list[str] | None = Field(
-        default_factory=list, description="User's preferred learning styles (e.g., examples, metaphors, analogies, step-by-step)"
+        default_factory=list,
+        description="User's preferred learning styles (e.g., examples, metaphors, analogies, step-by-step)",
     )
     byte_size_checkpoints: list[str] = Field(
         ..., description="List of 4-6 checkpoint names in order", min_length=4, max_length=6
