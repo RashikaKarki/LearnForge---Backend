@@ -1,6 +1,6 @@
 """Session management endpoints"""
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies.auth import get_current_user
 from app.initializers.firestore import get_db

@@ -1,269 +1,431 @@
 """WebSocket endpoint for Mission Commander agent interaction"""
 
 import json
-from typing import Dict
+import logging
+from enum import Enum
+from typing import Any, Dict, Literal, Optional, Union
 
-from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, status
-from google.adk.tools import ToolContext
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService, Session
+from google.genai.types import Content, Part
+from pydantic import BaseModel, Field
 
 from app.agents.mission_commander.agent import root_agent
-from app.dependencies.auth import get_current_user
-from app.initializers.firestore import get_db
 from app.models.mission import MissionCreate
-from app.models.user import User
 from app.services.mission_service import MissionService
 from app.services.session_log_service import SessionLogService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# ============================================================================
+# Message Type Definitions
+# ============================================================================
+
+
+class MessageType(str, Enum):
+    """WebSocket message types"""
+
+    USER_MESSAGE = "user_message"
+    AGENT_MESSAGE = "agent_message"
+    AGENT_HANDOVER = "agent_handover"
+    MISSION_CREATED = "mission_created"
+    CONNECTED = "connected"
+    PING = "ping"
+    PONG = "pong"
+    ERROR = "error"
+
+
+# Client → Server Messages
+class UserMessage(BaseModel):
+    """User message from client"""
+
+    type: Literal[MessageType.USER_MESSAGE] = MessageType.USER_MESSAGE
+    message: str = Field(..., min_length=1)
+
+
+class PingMessage(BaseModel):
+    """Ping message for connection keepalive"""
+
+    type: Literal[MessageType.PING] = MessageType.PING
+
+
+ClientMessage = Union[UserMessage, PingMessage]
+
+
+# Server → Client Messages
+class ConnectedMessage(BaseModel):
+    """Initial connection confirmation"""
+
+    type: Literal[MessageType.CONNECTED] = MessageType.CONNECTED
+    message: str
+
+
+class AgentMessage(BaseModel):
+    """Agent response during conversation"""
+
+    type: Literal[MessageType.AGENT_MESSAGE] = MessageType.AGENT_MESSAGE
+    message: str
+
+
+class AgentHandoverMessage(BaseModel):
+    """Notification when transferring between agents"""
+
+    type: Literal[MessageType.AGENT_HANDOVER] = MessageType.AGENT_HANDOVER
+    agent: str
+    message: str
+
+
+class MissionCreatedMessage(BaseModel):
+    """Final message with created mission details"""
+
+    type: Literal[MessageType.MISSION_CREATED] = MessageType.MISSION_CREATED
+    mission: Dict[str, Any]
+    enrollment: Dict[str, Any]
+    message: str
+
+
+class PongMessage(BaseModel):
+    """Response to ping for connection keepalive"""
+
+    type: Literal[MessageType.PONG] = MessageType.PONG
+
+
+class ErrorMessage(BaseModel):
+    """Error notification"""
+
+    type: Literal[MessageType.ERROR] = MessageType.ERROR
+    message: str
+
+
+ServerMessage = Union[
+    ConnectedMessage,
+    AgentMessage,
+    AgentHandoverMessage,
+    MissionCreatedMessage,
+    PongMessage,
+    ErrorMessage,
+]
+
+
+# ============================================================================
+# Connection Manager
+# ============================================================================
+
+
 class ConnectionManager:
-    """Manages WebSocket connections and agent sessions for Mission Commander"""
+    """Manages WebSocket connections and agent sessions"""
 
     def __init__(self):
-        # Store active WebSocket connections: {session_id: WebSocket}
         self.active_connections: Dict[str, WebSocket] = {}
-        # Store agent sessions: {session_id: Session}
         self.agent_sessions: Dict[str, Session] = {}
-        # Store session service
         self.session_service = InMemorySessionService()
+        self.runner = Runner(
+            agent=root_agent, app_name="mission-commander", session_service=self.session_service
+        )
 
     async def connect(self, session_id: str, websocket: WebSocket, user_id: str):
-        """Accept new WebSocket connection and initialize agent session"""
+        """Initialize WebSocket connection and create agent session"""
         await websocket.accept()
         self.active_connections[session_id] = websocket
 
-        # Create agent session with user context
-        session = Session(session_id, service=self.session_service)
-        session.state["creator_id"] = user_id
+        session = await self.session_service.create_session(
+            app_name="mission-commander",
+            user_id=user_id,
+            session_id=session_id,
+            state={"creator_id": user_id},
+        )
         self.agent_sessions[session_id] = session
+        logger.info(f"Connection established: session={session_id}, user={user_id}")
 
     def disconnect(self, session_id: str):
-        """Remove WebSocket connection and clean up session"""
-        if session_id in self.active_connections:
-            del self.active_connections[session_id]
-        if session_id in self.agent_sessions:
-            del self.agent_sessions[session_id]
+        """Clean up connection and session resources"""
+        self.active_connections.pop(session_id, None)
+        self.agent_sessions.pop(session_id, None)
+        logger.info(f"Connection closed: session={session_id}")
 
-    async def send_message(self, session_id: str, message: dict):
-        """Send JSON message to connected client"""
-        if session_id in self.active_connections:
-            websocket = self.active_connections[session_id]
-            await websocket.send_json(message)
+    async def send_message(self, session_id: str, message: ServerMessage):
+        """Send typed message to client"""
+        websocket = self.active_connections.get(session_id)
+        if websocket:
+            await websocket.send_json(message.model_dump(mode="json"))
 
-    def get_session(self, session_id: str) -> Session | None:
-        """Get agent session for given session ID"""
+    def get_session(self, session_id: str) -> Optional[Session]:
+        """Retrieve agent session by ID"""
         return self.agent_sessions.get(session_id)
 
 
-# Global connection manager instance
 manager = ConnectionManager()
 
 
-@router.websocket("/ws")
-async def mission_commander_websocket(
-    websocket: WebSocket,
-    session_id: str,
-):
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+async def validate_session(
+    websocket: WebSocket, session_id: str, token: Optional[str]
+) -> Optional[tuple[SessionLogService, str]]:
     """
-    WebSocket endpoint for Mission Commander agent interaction.
-
-    Prerequisites:
-    1. Call POST /api/v1/sessions to create a session and get session_id
-    2. Use the returned session_id to connect to this WebSocket
-
-    Flow:
-    1. Client connects with session_id (from sessions endpoint) and authentication token
-    2. Server validates session exists and belongs to authenticated user
-    3. Agent automatically starts with Pathfinder
-    4. Client sends user messages, receives agent responses
-    5. When mission is created, server sends mission JSON and updates session
-    6. Connection closes
-
-    Message Format:
-    - From client: {"type": "user_message", "content": "user text"}
-    - From server: {"type": "agent_message", "content": "agent text"}
-    - From server: {"type": "mission_created", "mission": {...}}
-    - From server: {"type": "error", "message": "error details"}
+    Validate session authenticity and status.
+    Returns (SessionLogService, user_id) if valid, None otherwise.
     """
-    db = None
-    session_log_service = None
-    user_id = None
-    
+    if not token:
+        logger.warning(f"Missing authentication token for session {session_id}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing token")
+        return None
+
     try:
-        # Extract token from query params
-        token = websocket.query_params.get("token")
-        if not token:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing token")
-            return
-
-        # Get database connection from app state
         db = websocket.app.state.db
         session_log_service = SessionLogService(db)
-        
-        # Validate session exists in database
-        try:
-            session_log = session_log_service.get_session(session_id)
-        except Exception:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid session_id")
-            return
-        
-        # Verify session is active
+        session_log = session_log_service.get_session(session_id)
+
         if session_log.status != "active":
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason=f"Session is {session_log.status}")
-            return
-        
-        # Use user_id from session (more secure than query param)
-        user_id = session_log.user_id
-
-        # Connect and initialize
-        await manager.connect(session_id, websocket, user_id)
-        mission_service = MissionService(db)
-
-        # Send connection confirmation
-        await manager.send_message(
-            session_id,
-            {
-                "type": "connected",
-                "message": "Connected to Mission Commander. Starting your learning journey...",
-            },
-        )
-
-        # Get agent session
-        session = manager.get_session(session_id)
-        if not session:
-            await manager.send_message(
-                session_id, {"type": "error", "message": "Failed to initialize session"}
+            logger.warning(f"Session {session_id} is {session_log.status}, not active")
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason=f"Session is {session_log.status}"
             )
-            return
+            return None
 
-        # Create tool context
-        ctx = ToolContext(session=session)
-
-        # Listen for client messages
-        while True:
-            try:
-                # Receive message from client
-                data = await websocket.receive_json()
-                message_type = data.get("type")
-                content = data.get("content", "")
-
-                if message_type == "user_message":
-                    # Process user message through agent
-                    await process_agent_flow(
-                        ctx, session_id, manager, mission_service, session_log_service, content
-                    )
-                    
-                    # Check if mission was created (agent completed)
-                    if "mission_create" in ctx.session.state:
-                        # Mission created, close connection
-                        break
-
-                elif message_type == "ping":
-                    # Heartbeat
-                    await manager.send_message(session_id, {"type": "pong"})
-
-            except WebSocketDisconnect:
-                # Mark session as abandoned if disconnected without completion
-                if session_log_service and "mission_create" not in ctx.session.state:
-                    try:
-                        session_log_service.mark_session_abandoned(session_id)
-                    except Exception:
-                        pass
-                manager.disconnect(session_id)
-                break
-            except json.JSONDecodeError:
-                await manager.send_message(
-                    session_id,
-                    {"type": "error", "message": "Invalid JSON format"},
-                )
-            except Exception as e:
-                # Mark session as error
-                if session_log_service:
-                    try:
-                        session_log_service.mark_session_error(session_id)
-                    except Exception:
-                        pass
-                await manager.send_message(
-                    session_id,
-                    {"type": "error", "message": f"Error processing message: {str(e)}"},
-                )
+        return session_log_service, session_log.user_id
 
     except Exception as e:
-        # Mark session as error on exception
-        if session_log_service:
-            try:
-                session_log_service.mark_session_error(session_id)
-            except Exception:
-                pass
-        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        logger.error(f"Session validation failed for {session_id}: {e}")
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid session")
+        return None
+
+
+async def handle_disconnect(session_id: str, user_id: str, session_log_service: SessionLogService):
+    """Mark incomplete sessions as abandoned on disconnect"""
+    try:
+        updated_session = await manager.session_service.get_session(
+            app_name="mission-commander", user_id=user_id, session_id=session_id
+        )
+
+        if "mission_create" not in updated_session.state:
+            session_log_service.mark_session_abandoned(session_id)
+            logger.info(f"Session {session_id} marked as abandoned")
+    except Exception as e:
+        logger.error(f"Error handling disconnect for {session_id}: {e}")
+    finally:
         manager.disconnect(session_id)
 
 
 async def process_agent_flow(
-    ctx: ToolContext,
     session_id: str,
+    user_id: str,
     manager: ConnectionManager,
     mission_service: MissionService,
     session_log_service: SessionLogService,
-    user_message: str = "",
+    user_message: str,
 ):
     """
-    Process the agent flow and stream events to WebSocket client.
-
-    Args:
-        ctx: Tool context with session state
-        session_id: WebSocket session identifier
-        manager: Connection manager instance
-        mission_service: Service for mission database operations
-        session_log_service: Service for session log operations
-        user_message: Latest user message (if any)
+    Process user message through agent system and handle responses.
+    Streams agent responses and handles mission creation.
     """
     try:
-        # Run agent and stream responses
-        # The agent will handle conversation flow internally
-        response = await root_agent.run_async(ctx, user_message=user_message)
-        
-        # Send agent's response to client
-        if response:
-            await manager.send_message(
-                session_id,
-                {"type": "agent_message", "content": response},
+        user_content = Content(parts=[Part(text=user_message)])
+        current_agent = None
+
+        # Stream agent events
+        for event in manager.runner.run(
+            user_id=user_id, session_id=session_id, new_message=user_content
+        ):
+            # Detect agent transfers
+            if hasattr(event, "actions") and event.actions:
+                if hasattr(event.actions, "transfer_to_agent") and event.actions.transfer_to_agent:
+                    transfer_target = event.actions.transfer_to_agent
+                    logger.info(f"Agent handover to {transfer_target} in session {session_id}")
+
+                    if transfer_target == "mission_curator":
+                        await manager.send_message(
+                            session_id,
+                            AgentHandoverMessage(
+                                agent="mission_curator",
+                                message="Creating your personalized learning mission...",
+                            ),
+                        )
+
+            # Track current agent
+            if hasattr(event, "author") and event.author:
+                current_agent = event.author
+
+            # Send text content to client (skip internal mission_curator messages)
+            if hasattr(event, "content") and event.content:
+                if hasattr(event.content, "parts"):
+                    for part in event.content.parts:
+                        if (
+                            hasattr(part, "text")
+                            and part.text
+                            and current_agent != "mission_curator"
+                        ):
+                            await manager.send_message(session_id, AgentMessage(message=part.text))
+
+        # Check if mission was created
+        updated_session = await manager.session_service.get_session(
+            app_name="mission-commander", user_id=user_id, session_id=session_id
+        )
+
+        if "mission_create" in updated_session.state:
+            mission_data_dict = updated_session.state["mission_create"]
+            creator_id = updated_session.state.get("creator_id")
+
+            # Convert to MissionCreate model
+            mission_data = (
+                MissionCreate(**mission_data_dict)
+                if isinstance(mission_data_dict, dict)
+                else mission_data_dict
             )
 
-        # After agent completes, check if mission was created
-        if "mission_create" in ctx.session.state:
-            mission_data: MissionCreate = ctx.session.state["mission_create"]
-            user_id = ctx.session.state.get("creator_id")
-
-            # Save mission to database and auto-enroll creator
+            # Create mission and enroll user
             mission, enrollment = mission_service.create_mission_with_enrollment(
-                mission_data, user_id
+                mission_data, creator_id
+            )
+            logger.info(
+                f"Mission {mission.id} created for user {creator_id} in session {session_id}"
             )
 
-            # Update session as completed with mission ID
+            # Update session status
             session_log_service.mark_session_completed(session_id, mission_id=mission.id)
 
-            # Send completed mission to client
+            # Send final message with mission details
             await manager.send_message(
                 session_id,
-                {
-                    "type": "mission_created",
-                    "mission": mission.model_dump(mode="json"),
-                    "enrollment": enrollment.model_dump(mode="json"),
-                    "message": "Mission created successfully!",
-                },
+                MissionCreatedMessage(
+                    mission=mission.model_dump(mode="json"),
+                    enrollment=enrollment.model_dump(mode="json"),
+                    message="Mission created successfully!",
+                ),
             )
 
     except Exception as e:
-        # Mark session as error
-        try:
-            session_log_service.mark_session_error(session_id)
-        except Exception:
-            pass
-        
+        logger.error(f"Agent processing error in session {session_id}: {e}", exc_info=True)
+        session_log_service.mark_session_error(session_id)
+        await manager.send_message(session_id, ErrorMessage(message=f"Processing error: {str(e)}"))
+
+
+# ============================================================================
+# WebSocket Endpoint
+# ============================================================================
+
+
+@router.websocket("/ws")
+async def mission_commander_websocket(websocket: WebSocket, session_id: str):
+    """
+    WebSocket endpoint for conversational mission creation.
+
+    Prerequisites:
+    1. Create session: POST /api/v1/sessions → get session_id
+    2. Connect with: ws://host/api/v1/mission-commander/ws?session_id=X&token=Y
+
+    Flow:
+    1. Client connects → receives 'connected' message
+    2. Client sends 'user_message' → agent responds
+    3. Conversation continues until mission requirements gathered
+    4. Agent creates mission → client receives 'mission_created'
+    5. Connection closes
+    """
+    session_log_service = None
+    user_id = None
+
+    try:
+        # Validate session and authenticate
+        token = websocket.query_params.get("token")
+        validation_result = await validate_session(websocket, session_id, token)
+        if not validation_result:
+            return
+
+        session_log_service, user_id = validation_result
+
+        # Initialize connection and services
+        await manager.connect(session_id, websocket, user_id)
+        mission_service = MissionService(websocket.app.state.db)
+
+        # Send connection confirmation
         await manager.send_message(
             session_id,
-            {"type": "error", "message": f"Agent error: {str(e)}"},
+            ConnectedMessage(
+                message="Connected to Mission Commander. Starting your learning journey..."
+            ),
         )
+
+        # Retrieve agent session
+        session = manager.get_session(session_id)
+        if not session:
+            logger.error(f"Agent session creation failed for {session_id}")
+            await manager.send_message(
+                session_id, ErrorMessage(message="Failed to initialize session")
+            )
+            return
+
+        # Message processing loop
+        while True:
+            try:
+                data = await websocket.receive_json()
+                message_type = data.get("type")
+
+                # Handle user messages
+                if message_type == MessageType.USER_MESSAGE:
+                    client_msg = UserMessage(**data)
+                    await process_agent_flow(
+                        session_id,
+                        user_id,
+                        manager,
+                        mission_service,
+                        session_log_service,
+                        client_msg.message,
+                    )
+
+                    # Check if mission created (conversation complete)
+                    updated_session = await manager.session_service.get_session(
+                        app_name="mission-commander", user_id=user_id, session_id=session_id
+                    )
+                    if "mission_create" in updated_session.state:
+                        logger.info(f"Mission created, closing session {session_id}")
+                        break
+
+                # Handle ping keepalive
+                elif message_type == MessageType.PING:
+                    PingMessage(**data)  # Validate
+                    await manager.send_message(session_id, PongMessage())
+
+                # Invalid message type
+                else:
+                    raise ValueError(f"Unknown message type: {message_type}")
+
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid message format in session {session_id}: {e}")
+                await manager.send_message(
+                    session_id, ErrorMessage(message=f"Invalid message format: {str(e)}")
+                )
+
+            except WebSocketDisconnect:
+                logger.info(f"Client disconnected: session={session_id}")
+                await handle_disconnect(session_id, user_id, session_log_service)
+                break
+
+            except json.JSONDecodeError as e:
+                logger.warning(f"Invalid JSON from session {session_id}: {e}")
+                await manager.send_message(session_id, ErrorMessage(message="Invalid JSON format"))
+
+            except Exception as e:
+                logger.error(
+                    f"Message processing error in session {session_id}: {e}", exc_info=True
+                )
+                if session_log_service:
+                    session_log_service.mark_session_error(session_id)
+                await manager.send_message(
+                    session_id, ErrorMessage(message=f"Processing error: {str(e)}")
+                )
+
+    except Exception as e:
+        logger.error(f"Fatal WebSocket error in session {session_id}: {e}", exc_info=True)
+        if session_log_service:
+            try:
+                session_log_service.mark_session_error(session_id)
+            except Exception as se:
+                logger.error(f"Failed to mark session error: {se}")
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        manager.disconnect(session_id)

@@ -38,7 +38,7 @@ def get_test_session():
 def create_test_app():
     """Create FastAPI app with mocked database and user."""
     app = FastAPI()
-    
+
     # Initialize app state with mock database
     app.state.db = MagicMock()
 

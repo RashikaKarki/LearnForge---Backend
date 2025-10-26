@@ -248,25 +248,25 @@ def test_get_missions_by_creator_and_visibility():
 def test_create_mission_with_enrollment_success(valid_mission_create_data):
     """Should create mission and auto-enroll creator."""
     from app.services.enrollment_service import EnrollmentService
-    
+
     # Mock mission collection
     mission_collection = FirestoreMocks.collection_empty()
     mission_doc_ref = mission_collection.document.return_value
     mission_doc_ref.id = "mission123"
-    
+
     # Mock enrollment collection
     enrollment_collection = MagicMock()
     enrollment_doc_ref = enrollment_collection.document.return_value
     enrollment_doc_ref.get.return_value = MagicMock(exists=False)  # Enrollment doesn't exist yet
-    
+
     # Mock users collection
     users_collection = MagicMock()
     users_collection.document.return_value.get.return_value = MagicMock(exists=True)
-    
+
     # Mock missions collection for enrollment service verification
     missions_collection = MagicMock()
     missions_collection.document.return_value.get.return_value = MagicMock(exists=True)
-    
+
     # Mock database
     db = MagicMock()
     collection_map = {
@@ -274,19 +274,21 @@ def test_create_mission_with_enrollment_success(valid_mission_create_data):
         "enrollments": enrollment_collection,
         "users": users_collection,
     }
-    
+
     def mock_collection(name):
         if name == "missions" and not hasattr(mock_collection, "_first_call"):
             mock_collection._first_call = True
             return mission_collection
         return collection_map.get(name, mission_collection)
-    
+
     db.collection = mock_collection
-    
+
     service = MissionService(db)
-    
-    mission, enrollment = service.create_mission_with_enrollment(valid_mission_create_data, "user123")
-    
+
+    mission, enrollment = service.create_mission_with_enrollment(
+        valid_mission_create_data, "user123"
+    )
+
     assert mission.title == valid_mission_create_data.title
     assert enrollment.user_id == "user123"
     assert enrollment.mission_id == mission.id
@@ -298,14 +300,14 @@ def test_create_mission_with_enrollment_rolls_back_on_failure(valid_mission_crea
     mission_collection = FirestoreMocks.collection_empty()
     mission_doc_ref = mission_collection.document.return_value
     mission_doc_ref.id = "mission123"
-    
+
     # Mock enrollment collection
     enrollment_collection = MagicMock()
-    
+
     # Mock users collection - user doesn't exist
     users_collection = MagicMock()
     users_collection.document.return_value.get.return_value = MagicMock(exists=False)
-    
+
     # Mock database
     db = MagicMock()
     collection_map = {
@@ -313,20 +315,20 @@ def test_create_mission_with_enrollment_rolls_back_on_failure(valid_mission_crea
         "enrollments": enrollment_collection,
         "users": users_collection,
     }
-    
+
     def mock_collection(name):
         if name == "missions" and not hasattr(mock_collection, "_first_call"):
             mock_collection._first_call = True
             return mission_collection
         return collection_map.get(name, mission_collection)
-    
+
     db.collection = mock_collection
-    
+
     service = MissionService(db)
-    
+
     with pytest.raises(HTTPException) as exc:
         service.create_mission_with_enrollment(valid_mission_create_data, "nonexistent_user")
-    
+
     assert exc.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
@@ -336,19 +338,19 @@ def test_create_mission_with_enrollment_returns_both_objects(valid_mission_creat
     mission_collection = FirestoreMocks.collection_empty()
     mission_doc_ref = mission_collection.document.return_value
     mission_doc_ref.id = "mission123"
-    
+
     # Mock enrollment collection
     enrollment_collection = MagicMock()
     enrollment_collection.document.return_value.get.return_value = MagicMock(exists=False)
-    
+
     # Mock users collection
     users_collection = MagicMock()
     users_collection.document.return_value.get.return_value = MagicMock(exists=True)
-    
+
     # Mock missions collection for enrollment verification
     missions_collection = MagicMock()
     missions_collection.document.return_value.get.return_value = MagicMock(exists=True)
-    
+
     # Mock database
     db = MagicMock()
     collection_map = {
@@ -356,19 +358,18 @@ def test_create_mission_with_enrollment_returns_both_objects(valid_mission_creat
         "enrollments": enrollment_collection,
         "users": users_collection,
     }
-    
+
     def mock_collection(name):
         if name == "missions" and not hasattr(mock_collection, "_first_call"):
             mock_collection._first_call = True
             return mission_collection
         return collection_map.get(name, mission_collection)
-    
+
     db.collection = mock_collection
-    
+
     service = MissionService(db)
-    
+
     result = service.create_mission_with_enrollment(valid_mission_create_data, "user123")
-    
+
     assert isinstance(result, tuple)
     assert len(result) == 2
-
