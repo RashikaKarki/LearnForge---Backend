@@ -3,7 +3,9 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from app.models.enrollment import EnrollmentCreate
 from app.models.mission import Mission, MissionCreate, MissionUpdate
+from app.services.enrollment_service import EnrollmentService
 from app.utils.firestore_exception import handle_firestore_exceptions
 
 
@@ -21,6 +23,46 @@ class MissionService:
         mission_data["updated_at"] = datetime.today()
         doc_ref.set(mission_data)
         return Mission(**mission_data)
+
+    @handle_firestore_exceptions
+    def create_mission_with_enrollment(
+        self, data: MissionCreate, user_id: str
+    ) -> tuple[Mission, any]:
+        """
+        Create a mission and automatically enroll the creator.
+
+        Args:
+            data: Mission creation data
+            user_id: ID of the user creating the mission (will be auto-enrolled)
+
+        Returns:
+            Tuple of (Mission, Enrollment) objects
+
+        Raises:
+            HTTPException: If mission or enrollment creation fails
+        """
+        # Create the mission first
+        mission = self.create_mission(data)
+
+        try:
+            # Auto-enroll the creator in the mission
+            enrollment_service = EnrollmentService(self.db)
+            enrollment_data = EnrollmentCreate(user_id=user_id, mission_id=mission.id, progress=0.0)
+            enrollment = enrollment_service.create_enrollment(enrollment_data)
+
+            return mission, enrollment
+
+        except Exception as e:
+            # If enrollment fails, delete the created mission to maintain consistency
+            try:
+                self.delete_mission(mission.id)
+            except Exception:
+                pass  # Best effort cleanup
+
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create enrollment: {str(e)}",
+            ) from e
 
     @handle_firestore_exceptions
     def get_mission(self, mission_id: str) -> Mission:
