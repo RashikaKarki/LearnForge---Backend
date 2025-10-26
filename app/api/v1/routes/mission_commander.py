@@ -171,7 +171,23 @@ async def validate_session(
     """
     Validate session authenticity and status.
     Returns (SessionLogService, user_id) if valid, None otherwise.
+
+    Token can be provided via:
+    1. Query parameter: ?token=xxx (current)
+    2. Cookie: token=xxx (more secure)
+    3. Authorization header: Bearer xxx (server-to-server only)
     """
+    # Try multiple sources for token (in order of preference)
+    if not token:
+        # Check cookies
+        token = websocket.cookies.get("token")
+
+    if not token:
+        # Check Authorization header (works for non-browser clients)
+        auth_header = websocket.headers.get("authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+
     if not token:
         logger.warning(f"Missing authentication token for session {session_id}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing token")
@@ -318,7 +334,12 @@ async def mission_commander_websocket(websocket: WebSocket, session_id: str):
 
     Prerequisites:
     1. Create session: POST /api/v1/sessions → get session_id
-    2. Connect with: ws://host/api/v1/mission-commander/ws?session_id=X&token=Y
+    2. Connect with authentication
+
+    Authentication (multiple options):
+    - Query param: ws://host/api/v1/mission-commander/ws?session_id=X&token=Y
+    - Cookie: Set 'token' cookie before connecting (recommended for browsers)
+    - Header: Authorization: Bearer <token> (server-to-server only)
 
     Flow:
     1. Client connects → receives 'connected' message
