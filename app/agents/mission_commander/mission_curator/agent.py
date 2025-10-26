@@ -30,6 +30,7 @@ Use the information provided by Polaris, agent that communicated with user to un
    - learning_goal: 3-4 sentences explaining the user's learning goal and what they aim to achieve
    - byte_size_checkpoints: List of 4-6 checkpoint names in logical order (including prerequisites)
    - skills: List of key skills the user will learn (e.g., ["Python", "Data Analysis", "Machine Learning"])
+   - learning_style: Use user's preferred learning styles (e.g., ["examples", "metaphors", "analogies", "step-by-step"])
    - is_public: Set to true (default)
 
 4) Formatting Rules
