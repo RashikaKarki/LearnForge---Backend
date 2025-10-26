@@ -1,13 +1,3 @@
-"""
-Comprehensive tests for Mission Commander WebSocket endpoint.
-
-Tests cover:
-- Message validation and error handling
-- Agent flow processing
-- Session state management
-- Helper functions
-"""
-
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
