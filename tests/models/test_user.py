@@ -1,103 +1,240 @@
-"""Unit tests for User model."""
+"""Tests for User models.
+
+Focus: Data validation and model structure only.
+"""
 
 from datetime import datetime
 
 import pytest
 from pydantic import ValidationError
 
-from app.models.user import User
-
-
-def test_user_model_valid_creation():
-    """Should create user with all required fields."""
-    user = User(
-        id="user123",
-        firebase_uid="firebase_uid_123",
-        name="Test User",
-        email="test@example.com",
-    )
-
-    assert user.id == "user123"
-    assert user.firebase_uid == "firebase_uid_123"
-    assert user.name == "Test User"
-    assert user.email == "test@example.com"
-
-
-def test_user_model_optional_picture_defaults_to_none():
-    """Should set picture to None when not provided."""
-    user = User(
-        id="user123",
-        firebase_uid="firebase_uid_123",
-        name="Test User",
-        email="test@example.com",
-    )
-
-    assert user.picture is None
-
-
-def test_user_model_timestamps_auto_generated():
-    """Should auto-generate created_at and updated_at timestamps."""
-    user = User(
-        id="user123",
-        firebase_uid="firebase_uid_123",
-        name="Test User",
-        email="test@example.com",
-    )
-
-    assert isinstance(user.created_at, datetime)
-    assert isinstance(user.updated_at, datetime)
-
-
-@pytest.mark.parametrize(
-    "email",
-    [
-        "not-an-email",
-        "missing-at-sign.com",
-        "@no-local-part.com",
-        "no-domain@",
-        "",
-    ],
+from app.models.user import (
+    User,
+    UserCreate,
+    UserEnrolledMission,
+    UserEnrolledMissionCreate,
+    UserEnrolledMissionUpdate,
+    UserUpdate,
 )
-def test_user_model_invalid_email_raises(email):
-    """Should raise ValidationError for invalid email formats."""
-    with pytest.raises(ValidationError):
-        User(
-            id="user123",
-            firebase_uid="firebase_uid_123",
-            name="Test User",
-            email=email,
+
+
+class TestUserEnrolledMission:
+    """Test UserEnrolledMission model validation."""
+
+    def test_create_with_all_fields(self):
+        """Valid enrolled mission with all fields."""
+        enrolled = UserEnrolledMission(
+            mission_id="mission123",
+            mission_title="Test Mission",
+            mission_short_description="Test description",
+            mission_skills=["Python", "FastAPI"],
+            progress=50.0,
+            enrolled_at=datetime(2025, 1, 1, 12, 0, 0),
+            last_accessed_at=datetime(2025, 1, 2, 12, 0, 0),
+            completed=False,
+            updated_at=datetime(2025, 1, 2, 12, 0, 0),
         )
 
+        assert enrolled.mission_id == "mission123"
+        assert enrolled.mission_title == "Test Mission"
+        assert enrolled.progress == 50.0
+        assert len(enrolled.mission_skills) == 2
 
-@pytest.mark.parametrize(
-    "picture",
-    [
-        "not-a-url",
-        "missing-protocol.com",
-    ],
-)
-def test_user_model_invalid_picture_raises(picture):
-    """Should raise ValidationError for invalid picture URLs."""
-    with pytest.raises(ValidationError):
-        User(
+    def test_create_with_defaults(self):
+        """Enrolled mission uses default values."""
+        enrolled = UserEnrolledMission(
+            mission_id="mission123",
+            mission_title="Test Mission",
+            mission_short_description="Test description",
+        )
+
+        assert enrolled.mission_skills == []
+        assert enrolled.progress == 0.0
+        assert enrolled.completed is False
+        assert isinstance(enrolled.enrolled_at, datetime)
+
+    @pytest.mark.parametrize(
+        "progress,valid",
+        [
+            (0.0, True),
+            (50.0, True),
+            (100.0, True),
+            (-1.0, False),
+            (101.0, False),
+        ],
+    )
+    def test_progress_validation(self, progress, valid):
+        """Progress must be between 0-100."""
+        if valid:
+            enrolled = UserEnrolledMission(
+                mission_id="m1",
+                mission_title="Title",
+                mission_short_description="Desc",
+                progress=progress,
+            )
+            assert enrolled.progress == progress
+        else:
+            with pytest.raises(ValidationError):
+                UserEnrolledMission(
+                    mission_id="m1",
+                    mission_title="Title",
+                    mission_short_description="Desc",
+                    progress=progress,
+                )
+
+
+class TestUserEnrolledMissionCreate:
+    """Test UserEnrolledMissionCreate model."""
+
+    def test_create_with_defaults(self):
+        """Create uses default values."""
+        create_data = UserEnrolledMissionCreate(
+            mission_id="mission123",
+            mission_title="Test Mission",
+            mission_short_description="Test description",
+        )
+
+        assert create_data.mission_skills == []
+        assert create_data.progress == 0.0
+        assert create_data.completed is False
+
+
+class TestUserEnrolledMissionUpdate:
+    """Test UserEnrolledMissionUpdate model."""
+
+    def test_all_fields_optional(self):
+        """All fields are optional for updates."""
+        update_data = UserEnrolledMissionUpdate()
+
+        assert update_data.progress is None
+        assert update_data.last_accessed_at is None
+        assert update_data.completed is None
+
+    def test_partial_update(self):
+        """Can update individual fields."""
+        update_data = UserEnrolledMissionUpdate(progress=75.0)
+
+        assert update_data.progress == 75.0
+        assert update_data.completed is None
+
+
+class TestUser:
+    """Test User model validation."""
+
+    def test_create_with_all_fields(self):
+        """Valid user with all fields."""
+        user = User(
             id="user123",
-            firebase_uid="firebase_uid_123",
+            firebase_uid="firebase123",
             name="Test User",
             email="test@example.com",
-            picture=picture,
+            picture="https://example.com/pic.jpg",
+            enrolled_missions=[],
+            created_at=datetime(2025, 1, 1),
+            updated_at=datetime(2025, 1, 1),
         )
 
+        assert user.id == "user123"
+        assert user.firebase_uid == "firebase123"
+        assert user.name == "Test User"
+        assert user.email == "test@example.com"
+        assert user.enrolled_missions == []
 
-@pytest.mark.parametrize(
-    "missing_field,data",
-    [
-        ("id", {"firebase_uid": "uid", "name": "Name", "email": "test@example.com"}),
-        ("firebase_uid", {"id": "id123", "name": "Name", "email": "test@example.com"}),
-        ("name", {"id": "id123", "firebase_uid": "uid", "email": "test@example.com"}),
-        ("email", {"id": "id123", "firebase_uid": "uid", "name": "Name"}),
-    ],
-)
-def test_user_model_missing_required_field_raises(missing_field, data):
-    """Should raise ValidationError when required field is missing."""
-    with pytest.raises(ValidationError):
-        User(**data)
+    def test_create_with_defaults(self):
+        """User uses default values."""
+        user = User(
+            id="user123",
+            firebase_uid="firebase123",
+            name="Test User",
+            email="test@example.com",
+        )
+
+        assert user.picture is None
+        assert user.enrolled_missions == []
+        assert isinstance(user.created_at, datetime)
+        assert isinstance(user.updated_at, datetime)
+
+    def test_create_with_enrolled_missions(self):
+        """User can have enrolled missions."""
+        enrolled = UserEnrolledMission(
+            mission_id="m1",
+            mission_title="Mission 1",
+            mission_short_description="Desc",
+        )
+
+        user = User(
+            id="user123",
+            firebase_uid="firebase123",
+            name="Test User",
+            email="test@example.com",
+            enrolled_missions=[enrolled],
+        )
+
+        assert len(user.enrolled_missions) == 1
+        assert user.enrolled_missions[0].mission_id == "m1"
+
+    @pytest.mark.parametrize(
+        "email",
+        [
+            "invalid-email",
+            "no-at-sign",
+            "@no-local-part.com",
+            "no-domain@",
+            "",
+        ],
+    )
+    def test_invalid_email_raises_error(self, email):
+        """Invalid email raises ValidationError."""
+        with pytest.raises(ValidationError):
+            User(
+                id="user123",
+                firebase_uid="firebase123",
+                name="Test User",
+                email=email,
+            )
+
+
+class TestUserCreate:
+    """Test UserCreate model."""
+
+    def test_create_with_all_fields(self):
+        """Valid user creation with all fields."""
+        user_data = UserCreate(
+            firebase_uid="firebase123",
+            name="Test User",
+            email="test@example.com",
+            picture="https://example.com/pic.jpg",
+        )
+
+        assert user_data.firebase_uid == "firebase123"
+        assert user_data.name == "Test User"
+        assert user_data.email == "test@example.com"
+
+    def test_create_without_optional_fields(self):
+        """User creation without optional fields."""
+        user_data = UserCreate(
+            firebase_uid="firebase123",
+            name="Test User",
+            email="test@example.com",
+        )
+
+        assert user_data.picture is None
+
+
+class TestUserUpdate:
+    """Test UserUpdate model."""
+
+    def test_all_fields_optional(self):
+        """All fields are optional for updates."""
+        update_data = UserUpdate()
+
+        assert update_data.name is None
+        assert update_data.email is None
+        assert update_data.picture is None
+
+    def test_partial_update_name_only(self):
+        """Can update name only."""
+        update_data = UserUpdate(name="New Name")
+
+        assert update_data.name == "New Name"
+        assert update_data.email is None

@@ -19,7 +19,10 @@ class FirestoreMocks:
         collection.document.return_value = doc
 
         # Mock where queries returning no results
-        collection.where.return_value.limit.return_value.get.return_value = []
+        where_mock = MagicMock()
+        where_mock.get.return_value = []
+        where_mock.limit.return_value.get.return_value = []
+        collection.where.return_value = where_mock
         collection.order_by.return_value.get.return_value = []
 
         return collection
