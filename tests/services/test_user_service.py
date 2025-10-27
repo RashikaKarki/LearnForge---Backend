@@ -19,7 +19,6 @@ from app.models.user import (
 from app.services.user_service import UserService
 from tests.mocks.firestore import FirestoreMocks
 
-
 # ============================================================================
 # FIXTURES - Test data stays in this file for visibility
 # ============================================================================
@@ -344,11 +343,11 @@ class TestCreateEnrolledMission:
 
         # Mock that document doesn't exist (for duplicate check)
         doc_not_found = FirestoreMocks.document_not_found()
-        
+
         # Mock the enrollment document
         enrollment_doc = MagicMock()
         enrollment_doc.get.return_value = doc_not_found  # Doesn't exist yet
-        
+
         subcollection.document.return_value = enrollment_doc
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc

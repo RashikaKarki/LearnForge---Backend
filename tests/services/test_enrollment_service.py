@@ -14,7 +14,6 @@ from app.models.user import UserEnrolledMissionCreate
 from app.services.enrollment_service import EnrollmentService
 from tests.mocks.firestore import FirestoreMocks
 
-
 # ============================================================================
 # FIXTURES - Test data stays in this file
 # ============================================================================
@@ -95,7 +94,12 @@ class TestCreateEnrollment:
     """Test enrollment creation with dual-write pattern."""
 
     def test_create_enrollment_success(
-        self, mock_db, mock_user_service, valid_enrollment_create, existing_user_data, existing_mission_data
+        self,
+        mock_db,
+        mock_user_service,
+        valid_enrollment_create,
+        existing_user_data,
+        existing_mission_data,
     ):
         """Successfully create enrollment with dual-write."""
         # Mock users collection
@@ -141,7 +145,9 @@ class TestCreateEnrollment:
             call_args = mock_user_service.create_enrolled_mission.call_args
             assert call_args[1]["user_id"] == "user123"
 
-    def test_create_enrollment_user_not_found_raises_404(self, mock_db, mock_user_service, valid_enrollment_create):
+    def test_create_enrollment_user_not_found_raises_404(
+        self, mock_db, mock_user_service, valid_enrollment_create
+    ):
         """Creating enrollment for non-existent user raises 404."""
         users_collection = MagicMock()
         user_doc = FirestoreMocks.document_not_found()
@@ -185,7 +191,13 @@ class TestCreateEnrollment:
         assert "Mission" in exc.value.detail
 
     def test_create_enrollment_duplicate_raises_400(
-        self, mock_db, mock_user_service, valid_enrollment_create, existing_user_data, existing_mission_data, existing_enrollment_data
+        self,
+        mock_db,
+        mock_user_service,
+        valid_enrollment_create,
+        existing_user_data,
+        existing_mission_data,
+        existing_enrollment_data,
     ):
         """Creating duplicate enrollment raises 400."""
         users_collection = MagicMock()
@@ -197,7 +209,9 @@ class TestCreateEnrollment:
         missions_collection.document.return_value.get.return_value = mission_doc
 
         enrollments_collection = MagicMock()
-        existing_doc = FirestoreMocks.document_exists("user123_mission456", existing_enrollment_data)
+        existing_doc = FirestoreMocks.document_exists(
+            "user123_mission456", existing_enrollment_data
+        )
         enrollments_collection.document.return_value.get.return_value = existing_doc
 
         def collection_side_effect(name):
@@ -218,7 +232,12 @@ class TestCreateEnrollment:
         assert "already enrolled" in exc.value.detail
 
     def test_create_enrollment_rollback_on_user_service_failure(
-        self, mock_db, mock_user_service, valid_enrollment_create, existing_user_data, existing_mission_data
+        self,
+        mock_db,
+        mock_user_service,
+        valid_enrollment_create,
+        existing_user_data,
+        existing_mission_data,
     ):
         """Enrollment creation rolls back if user service fails."""
         # Setup mocks for successful user and mission checks
@@ -271,9 +290,11 @@ class TestUpdateEnrollment:
         """Successfully update enrollment."""
         enrollments_collection = MagicMock()
         doc_ref = MagicMock()
-        
+
         # First get() for existence check, second for fetching updated data
-        existing_doc = FirestoreMocks.document_exists("user123_mission456", existing_enrollment_data)
+        existing_doc = FirestoreMocks.document_exists(
+            "user123_mission456", existing_enrollment_data
+        )
         doc_ref.get.side_effect = [existing_doc, existing_doc]
         enrollments_collection.document.return_value = doc_ref
 
@@ -311,11 +332,15 @@ class TestUpdateEnrollment:
 
         assert exc.value.status_code == 404
 
-    def test_update_enrollment_partial_update(self, mock_db, mock_user_service, existing_enrollment_data):
+    def test_update_enrollment_partial_update(
+        self, mock_db, mock_user_service, existing_enrollment_data
+    ):
         """Partial update only changes specified fields."""
         enrollments_collection = MagicMock()
         doc_ref = MagicMock()
-        existing_doc = FirestoreMocks.document_exists("user123_mission456", existing_enrollment_data)
+        existing_doc = FirestoreMocks.document_exists(
+            "user123_mission456", existing_enrollment_data
+        )
         doc_ref.get.side_effect = [existing_doc, existing_doc]
         enrollments_collection.document.return_value = doc_ref
 
@@ -345,7 +370,9 @@ class TestDeleteEnrollment:
         """Successfully delete enrollment."""
         enrollments_collection = MagicMock()
         doc_ref = MagicMock()
-        existing_doc = FirestoreMocks.document_exists("user123_mission456", existing_enrollment_data)
+        existing_doc = FirestoreMocks.document_exists(
+            "user123_mission456", existing_enrollment_data
+        )
         doc_ref.get.return_value = existing_doc
         enrollments_collection.document.return_value = doc_ref
 
@@ -461,11 +488,15 @@ class TestGetEnrollmentsByUser:
 class TestUpdateLastAccessed:
     """Test updating last accessed timestamp."""
 
-    def test_update_last_accessed_success(self, mock_db, mock_user_service, existing_enrollment_data):
+    def test_update_last_accessed_success(
+        self, mock_db, mock_user_service, existing_enrollment_data
+    ):
         """Successfully update last accessed timestamp."""
         enrollments_collection = MagicMock()
         doc_ref = MagicMock()
-        existing_doc = FirestoreMocks.document_exists("user123_mission456", existing_enrollment_data)
+        existing_doc = FirestoreMocks.document_exists(
+            "user123_mission456", existing_enrollment_data
+        )
         doc_ref.get.side_effect = [existing_doc, existing_doc]
         enrollments_collection.document.return_value = doc_ref
 
@@ -495,13 +526,18 @@ class TestEdgeCases:
     def test_enrollment_id_generation(self, mock_db, mock_user_service):
         """Enrollment ID is correctly generated from user and mission IDs."""
         service = EnrollmentService(mock_db, mock_user_service)
-        
+
         enrollment_id = service._generate_enrollment_id("user123", "mission456")
-        
+
         assert enrollment_id == "user123_mission456"
 
     def test_concurrent_enrollment_creation_handled(
-        self, mock_db, mock_user_service, valid_enrollment_create, existing_user_data, existing_mission_data
+        self,
+        mock_db,
+        mock_user_service,
+        valid_enrollment_create,
+        existing_user_data,
+        existing_mission_data,
     ):
         """Concurrent enrollment creation is handled by duplicate check."""
         # This is tested by the duplicate creation test
@@ -514,15 +550,17 @@ class TestEdgeCases:
         """User service failures are logged but don't crash."""
         enrollments_collection = MagicMock()
         doc_ref = MagicMock()
-        existing_doc = FirestoreMocks.document_exists("user123_mission456", existing_enrollment_data)
+        existing_doc = FirestoreMocks.document_exists(
+            "user123_mission456", existing_enrollment_data
+        )
         doc_ref.get.side_effect = [existing_doc, existing_doc]
         enrollments_collection.document.return_value = doc_ref
 
         mock_db.collection.return_value = enrollments_collection
-        
+
         # User service fails
         mock_user_service.update_enrolled_mission.side_effect = Exception("User service down")
-        
+
         service = EnrollmentService(mock_db, mock_user_service)
 
         update_data = EnrollmentUpdate(progress=50.0)
@@ -533,6 +571,6 @@ class TestEdgeCases:
                 service.update_enrollment("user123", "mission456", update_data)
             except Exception:
                 pass  # Expected from mock failure
-            
+
             # Verify error was attempted to be logged
             # (actual behavior may vary based on implementation)

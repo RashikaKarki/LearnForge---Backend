@@ -1,5 +1,5 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -18,10 +18,11 @@ class MissionService:
         self.db = db
         self.collection = db.collection("missions")
         self.enrollments_collection = db.collection("enrollments")
-        
+
         # UserService dependency for denormalized user subcollection
         if user_service is None:
             from app.services.user_service import UserService
+
             self.user_service = UserService(db)
         else:
             self.user_service = user_service
@@ -101,41 +102,39 @@ class MissionService:
         if update_data:
             update_data["updated_at"] = datetime.today()
             doc_ref.update(update_data)
-            
+
             if any(key in update_data for key in ["title", "short_description", "skills"]):
                 self._propagate_mission_updates(mission_id, update_data)
 
         updated_doc = doc_ref.get()
         return Mission(**updated_doc.to_dict())
-    
+
     def _propagate_mission_updates(self, mission_id: str, update_data: dict) -> None:
         """Propagate mission metadata updates to all enrolled users' subcollections.
-        
+
         Args:
             mission_id: The mission's ID
             update_data: Mission fields that were updated
         """
         # Get all enrollments for this mission
-        enrollments = (
-            self.enrollments_collection
-            .where(filter=FieldFilter("mission_id", "==", mission_id))
-            .get()
-        )
-        
+        enrollments = self.enrollments_collection.where(
+            filter=FieldFilter("mission_id", "==", mission_id)
+        ).get()
+
         enrollments_list = list(enrollments)
         logger.info(
             f"Propagating mission updates for mission '{mission_id}' to {len(enrollments_list)} enrolled users. "
             f"Fields updated: {', '.join(update_data.keys())}"
         )
-        
+
         success_count = 0
         error_count = 0
-        
+
         # For each enrolled user, update their denormalized mission data
         for enrollment_doc in enrollments_list:
             enrollment_data = enrollment_doc.to_dict()
             user_id = enrollment_data.get("user_id")
-            
+
             if not user_id:
                 logger.warning(
                     f"Skipping enrollment '{enrollment_doc.id}' for mission '{mission_id}': "
@@ -143,23 +142,21 @@ class MissionService:
                 )
                 error_count += 1
                 continue
-            
+
             # Construct UserEnrolledMissionUpdate with only mission metadata fields
             user_update_data = UserEnrolledMissionUpdate()
-            
+
             if "title" in update_data:
                 user_update_data.mission_title = update_data["title"]
             if "short_description" in update_data:
                 user_update_data.mission_short_description = update_data["short_description"]
             if "skills" in update_data:
                 user_update_data.mission_skills = update_data["skills"]
-            
+
             # Update the user's enrolled mission
             try:
                 self.user_service.update_enrolled_mission(
-                    user_id=user_id,
-                    mission_id=mission_id,
-                    data=user_update_data
+                    user_id=user_id, mission_id=mission_id, data=user_update_data
                 )
                 success_count += 1
             except HTTPException as e:
@@ -173,10 +170,10 @@ class MissionService:
                 logger.error(
                     f"Unexpected error updating enrolled mission for user '{user_id}' and mission '{mission_id}': "
                     f"{str(e)}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 error_count += 1
-        
+
         logger.info(
             f"Mission update propagation completed for mission '{mission_id}'. "
             f"Success: {success_count}, Errors: {error_count}"

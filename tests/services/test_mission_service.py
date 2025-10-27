@@ -13,7 +13,6 @@ from app.models.mission import MissionCreate, MissionUpdate
 from app.services.mission_service import MissionService
 from tests.mocks.firestore import FirestoreMocks
 
-
 # ============================================================================
 # FIXTURES
 # ============================================================================
@@ -187,7 +186,9 @@ class TestGetMission:
 class TestUpdateMission:
     """Test mission updates."""
 
-    def test_update_mission_success_without_propagation(self, mock_db, mock_user_service, existing_mission_data):
+    def test_update_mission_success_without_propagation(
+        self, mock_db, mock_user_service, existing_mission_data
+    ):
         """Successfully update mission without triggering propagation."""
         missions_collection = MagicMock()
         doc_ref = MagicMock()
@@ -226,7 +227,7 @@ class TestUpdateMission:
         enrollment_doc = MagicMock()
         enrollment_doc.id = "user123_mission123"
         enrollment_doc.to_dict.return_value = enrollment_data
-        
+
         where_mock = MagicMock()
         where_mock.get.return_value = [enrollment_doc]
         enrollments_collection.where.return_value = where_mock
@@ -416,7 +417,9 @@ class TestGetPublicMissions:
 class TestPropagationEdgeCases:
     """Test mission update propagation edge cases."""
 
-    def test_propagation_handles_no_enrollments(self, mock_db, mock_user_service, existing_mission_data):
+    def test_propagation_handles_no_enrollments(
+        self, mock_db, mock_user_service, existing_mission_data
+    ):
         """Propagation handles missions with no enrollments."""
         missions_collection = MagicMock()
         doc_ref = MagicMock()
@@ -445,7 +448,9 @@ class TestPropagationEdgeCases:
             # Should log that propagation started but no users to update
             assert mock_logger.info.called
 
-    def test_propagation_handles_missing_user_id(self, mock_db, mock_user_service, existing_mission_data):
+    def test_propagation_handles_missing_user_id(
+        self, mock_db, mock_user_service, existing_mission_data
+    ):
         """Propagation skips enrollments with missing user_id."""
         missions_collection = MagicMock()
         doc_ref = MagicMock()
@@ -460,13 +465,13 @@ class TestPropagationEdgeCases:
             # "user_id": missing!
             "progress": 50.0,
         }
-        
+
         # Mock enrollments collection with proper where().get() chain
         enrollments_collection = MagicMock()
         enrollment_doc = MagicMock()
         enrollment_doc.id = "mission123_missing"
         enrollment_doc.to_dict.return_value = bad_enrollment
-        
+
         where_mock = MagicMock()
         where_mock.get.return_value = [enrollment_doc]
         enrollments_collection.where.return_value = where_mock
@@ -502,18 +507,18 @@ class TestPropagationEdgeCases:
         # Two enrollments
         enrollment2 = enrollment_data.copy()
         enrollment2["user_id"] = "user456"
-        
+
         # Mock enrollments collection with proper where().get() chain
         enrollments_collection = MagicMock()
-        
+
         enrollment_doc1 = MagicMock()
         enrollment_doc1.id = "user123_mission123"
         enrollment_doc1.to_dict.return_value = enrollment_data
-        
+
         enrollment_doc2 = MagicMock()
         enrollment_doc2.id = "user456_mission123"
         enrollment_doc2.to_dict.return_value = enrollment2
-        
+
         where_mock = MagicMock()
         where_mock.get.return_value = [enrollment_doc1, enrollment_doc2]
         enrollments_collection.where.return_value = where_mock
@@ -528,7 +533,7 @@ class TestPropagationEdgeCases:
 
         # First user update fails, second succeeds
         call_count = [0]
-        
+
         def update_side_effect(*args, **kwargs):
             call_count[0] += 1
             if call_count[0] == 1:
@@ -557,7 +562,9 @@ class TestPropagationEdgeCases:
 class TestEdgeCases:
     """Test edge cases and special scenarios."""
 
-    def test_create_mission_with_enrollment_success(self, mock_db, mock_user_service, valid_mission_create):
+    def test_create_mission_with_enrollment_success(
+        self, mock_db, mock_user_service, valid_mission_create
+    ):
         """Create mission with auto-enrollment for creator."""
         missions_collection = MagicMock()
         doc_ref = MagicMock()
@@ -568,10 +575,10 @@ class TestEdgeCases:
 
         # Mock enrollment service
         from app.services.enrollment_service import EnrollmentService
-        
+
         with patch.object(EnrollmentService, "create_enrollment") as mock_create_enrollment:
             from app.models.enrollment import Enrollment
-            
+
             mock_create_enrollment.return_value = Enrollment(
                 id="creator123_new_mission_id",
                 user_id="creator123",
@@ -587,8 +594,7 @@ class TestEdgeCases:
             service = MissionService(mock_db, mock_user_service)
 
             mission, enrollment = service.create_mission_with_enrollment(
-                valid_mission_create,
-                user_id="creator123"
+                valid_mission_create, user_id="creator123"
             )
 
             assert mission.id == "new_mission_id"

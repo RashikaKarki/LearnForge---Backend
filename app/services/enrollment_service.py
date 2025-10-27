@@ -1,5 +1,5 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -24,10 +24,11 @@ class EnrollmentService:
         self.collection = db.collection("enrollments")
         self.missions_collection = db.collection("missions")
         self.users_collection = db.collection("users")
-        
+
         # UserService dependency for denormalized user subcollection
         if user_service is None:
             from app.services.user_service import UserService
+
             self.user_service = UserService(db)
         else:
             self.user_service = user_service
@@ -53,7 +54,7 @@ class EnrollmentService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Mission with ID '{data.mission_id}' not found.",
             )
-        
+
         mission_data = mission_doc.to_dict()
 
         # Check if enrollment already exists
@@ -75,7 +76,7 @@ class EnrollmentService:
 
         # Create in global enrollments collection
         self.collection.document(enrollment_id).set(enrollment_data)
-        
+
         # Create in user's enrolled_missions subcollection (denormalized)
         user_enrolled_create = UserEnrolledMissionCreate(
             mission_id=data.mission_id,
@@ -87,11 +88,10 @@ class EnrollmentService:
             last_accessed_at=enrollment_data["last_accessed_at"],
             completed=False,
         )
-        
+
         try:
             self.user_service.create_enrolled_mission(
-                user_id=data.user_id,
-                data=user_enrolled_create
+                user_id=data.user_id, data=user_enrolled_create
             )
             logger.info(
                 f"Successfully created enrollment '{enrollment_id}' for user '{data.user_id}' "
@@ -101,15 +101,15 @@ class EnrollmentService:
             logger.error(
                 f"Failed to create enrolled mission in user subcollection for user '{data.user_id}' "
                 f"and mission '{data.mission_id}'. Global enrollment created but user subcollection failed: {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
             # Roll back global enrollment
             self.collection.document(enrollment_id).delete()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create enrollment: {str(e)}"
+                detail=f"Failed to create enrollment: {str(e)}",
             )
-        
+
         return Enrollment(**enrollment_data)
 
     @handle_firestore_exceptions
@@ -157,22 +157,20 @@ class EnrollmentService:
             update_data["updated_at"] = datetime.today()
             if "last_accessed_at" not in update_data:
                 update_data["last_accessed_at"] = datetime.today()
-            
+
             # Update global enrollments collection
             doc_ref.update(update_data)
-            
+
             # Update user's enrolled_missions subcollection (denormalized)
             user_enrolled_update = UserEnrolledMissionUpdate(
                 progress=data.progress,
                 completed=data.completed,
                 last_accessed_at=update_data["last_accessed_at"],
             )
-            
+
             try:
                 self.user_service.update_enrolled_mission(
-                    user_id=user_id,
-                    mission_id=mission_id,
-                    data=user_enrolled_update
+                    user_id=user_id, mission_id=mission_id, data=user_enrolled_update
                 )
                 logger.info(
                     f"Successfully updated enrollment for user '{user_id}' in mission '{mission_id}' "
@@ -182,7 +180,7 @@ class EnrollmentService:
                 logger.error(
                     f"Failed to update enrolled mission in user subcollection for user '{user_id}' "
                     f"and mission '{mission_id}'. Global enrollment updated but user subcollection failed: {str(e)}",
-                    exc_info=True
+                    exc_info=True,
                 )
 
         updated_doc = doc_ref.get()
@@ -202,12 +200,9 @@ class EnrollmentService:
 
         # Delete from global enrollments collection
         doc_ref.delete()
-        
+
         try:
-            self.user_service.delete_enrolled_mission(
-                user_id=user_id,
-                mission_id=mission_id
-            )
+            self.user_service.delete_enrolled_mission(user_id=user_id, mission_id=mission_id)
             logger.info(
                 f"Successfully deleted enrollment '{enrollment_id}' for user '{user_id}' "
                 f"in mission '{mission_id}' (dual-delete from global and user subcollection)"
@@ -216,8 +211,8 @@ class EnrollmentService:
             logger.error(
                 f"Failed to delete enrolled mission from user subcollection for user '{user_id}' "
                 f"and mission '{mission_id}'. Global enrollment deleted but user subcollection failed: {str(e)}",
-                exc_info=True
-            )        
+                exc_info=True,
+            )
         return {"message": f"Enrollment '{enrollment_id}' deleted successfully."}
 
     @handle_firestore_exceptions
@@ -252,31 +247,25 @@ class EnrollmentService:
             )
 
         update_data = {"last_accessed_at": datetime.today(), "updated_at": datetime.today()}
-        
+
         # Update global enrollments collection
         doc_ref.update(update_data)
-        
+
         # Update user's enrolled_missions subcollection (denormalized)
-        user_enrolled_update = UserEnrolledMissionUpdate(
-            last_accessed_at=datetime.today()
-        )
-        
+        user_enrolled_update = UserEnrolledMissionUpdate(last_accessed_at=datetime.today())
+
         try:
             self.user_service.update_enrolled_mission(
-                user_id=user_id,
-                mission_id=mission_id,
-                data=user_enrolled_update
+                user_id=user_id, mission_id=mission_id, data=user_enrolled_update
             )
-            logger.debug(
-                f"Updated last_accessed_at for user '{user_id}' in mission '{mission_id}'"
-            )
+            logger.debug(f"Updated last_accessed_at for user '{user_id}' in mission '{mission_id}'")
         except Exception as e:
             logger.error(
                 f"Failed to update last_accessed_at in user subcollection for user '{user_id}' "
                 f"and mission '{mission_id}': {str(e)}",
-                exc_info=True
+                exc_info=True,
             )
-        
+
         updated_doc = doc_ref.get()
         return Enrollment(**updated_doc.to_dict())
 

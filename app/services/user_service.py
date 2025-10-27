@@ -81,12 +81,7 @@ class UserService:
 
     @handle_firestore_exceptions
     def get_enrolled_missions(self, user_id: str, limit: int = 100) -> list[UserEnrolledMission]:
-        docs = (
-            self.collection.document(user_id)
-            .collection("enrolled_missions")
-            .limit(limit)
-            .get()
-        )
+        docs = self.collection.document(user_id).collection("enrolled_missions").limit(limit).get()
         return [UserEnrolledMission(**doc.to_dict()) for doc in docs]
 
     @handle_firestore_exceptions
@@ -97,18 +92,18 @@ class UserService:
             .document(mission_id)
             .get()
         )
-        
+
         if not doc.exists:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Enrolled mission '{mission_id}' not found for user '{user_id}'.",
             )
-        
+
         return UserEnrolledMission(**doc.to_dict())
 
     @handle_firestore_exceptions
     def create_enrolled_mission(
-        self, 
+        self,
         user_id: str,
         data: UserEnrolledMissionCreate,
     ) -> UserEnrolledMission:
@@ -119,17 +114,17 @@ class UserService:
             .document(data.mission_id)
             .get()
         )
-        
+
         if existing_doc.exists:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"User is already enrolled in mission '{data.mission_id}'.",
             )
-        
+
         # Prepare data with timestamps
         enrolled_data = data.model_dump()
         enrolled_data["updated_at"] = datetime.today()
-        
+
         # Create document
         user_enrolled_ref = (
             self.collection.document(user_id)
@@ -137,7 +132,7 @@ class UserService:
             .document(data.mission_id)
         )
         user_enrolled_ref.set(enrolled_data)
-        
+
         return UserEnrolledMission(**enrolled_data)
 
     @handle_firestore_exceptions
@@ -148,25 +143,23 @@ class UserService:
         data: UserEnrolledMissionUpdate,
     ) -> UserEnrolledMission:
         user_enrolled_ref = (
-            self.collection.document(user_id)
-            .collection("enrolled_missions")
-            .document(mission_id)
+            self.collection.document(user_id).collection("enrolled_missions").document(mission_id)
         )
-        
+
         doc = user_enrolled_ref.get()
         if not doc.exists:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Enrolled mission '{mission_id}' not found for user '{user_id}'.",
             )
-        
+
         # Only include non-None fields
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-        
+
         if update_data:
             update_data["updated_at"] = datetime.today()
             user_enrolled_ref.update(update_data)
-        
+
         # Fetch and return updated document
         updated_doc = user_enrolled_ref.get()
         return UserEnrolledMission(**updated_doc.to_dict())
@@ -178,20 +171,18 @@ class UserService:
         mission_id: str,
     ) -> dict:
         user_enrolled_ref = (
-            self.collection.document(user_id)
-            .collection("enrolled_missions")
-            .document(mission_id)
+            self.collection.document(user_id).collection("enrolled_missions").document(mission_id)
         )
-        
+
         doc = user_enrolled_ref.get()
         if not doc.exists:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Enrolled mission '{mission_id}' not found for user '{user_id}'.",
             )
-        
+
         user_enrolled_ref.delete()
-        
+
         return {
             "message": f"Enrolled mission '{mission_id}' deleted successfully for user '{user_id}'."
         }

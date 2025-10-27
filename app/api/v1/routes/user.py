@@ -16,7 +16,7 @@ async def get_profile(
     limit: int = 100,
 ):
     """Get current user profile.
-    
+
     Args:
         include_enrollments: If True, includes enrolled missions (2 queries).
                             If False, returns basic user info only (1 query, faster).
@@ -27,7 +27,7 @@ async def get_profile(
         user_service = UserService(db)
         basic_user = user_service.get_user(user.id)
         enrolled_missions = user_service.get_enrolled_missions(user.id, limit=limit)
-        
+
         # Combine user data with enrolled missions
         user_dict = basic_user.model_dump()
         user_dict["enrolled_missions"] = enrolled_missions
@@ -35,6 +35,7 @@ async def get_profile(
     else:
         # Return basic user info (no additional query needed)
         return user
+
 
 @router.get("/enrolled-missions", response_model=list[UserEnrolledMission])
 async def get_enrolled_missions(

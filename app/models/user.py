@@ -2,9 +2,10 @@ from datetime import datetime
 
 from pydantic import AnyUrl, BaseModel, EmailStr, Field
 
+
 class UserEnrolledMission(BaseModel):
     """Denormalized enrollment stored in users/{user_id}/enrolled_missions subcollection.
-    
+
     This is optimized for fast dashboard reads - includes mission details to avoid joins.
     """
 
@@ -24,6 +25,7 @@ class UserEnrolledMission(BaseModel):
     completed: bool = Field(default=False, description="Whether the mission is completed")
     updated_at: datetime = Field(default_factory=datetime.today)
 
+
 class UserEnrolledMissionCreate(BaseModel):
     mission_id: str
     mission_title: str
@@ -37,12 +39,12 @@ class UserEnrolledMissionCreate(BaseModel):
 
 class UserEnrolledMissionUpdate(BaseModel):
     """Update schema for user enrolled missions - all fields optional."""
-    
+
     # Mission metadata fields (updated when mission changes)
     mission_title: str | None = None
     mission_short_description: str | None = None
     mission_skills: list[str] | None = None
-    
+
     # Progress tracking fields
     progress: float | None = Field(None, ge=0.0, le=100.0)
     last_accessed_at: datetime | None = None
@@ -57,7 +59,7 @@ class User(BaseModel):
     picture: AnyUrl | None = None
     enrolled_missions: list[UserEnrolledMission] = Field(
         default_factory=list,
-        description="List of missions the user is enrolled in (denormalized, optional)"
+        description="List of missions the user is enrolled in (denormalized, optional)",
     )
     created_at: datetime = Field(default_factory=datetime.today)
     updated_at: datetime = Field(default_factory=datetime.today)
