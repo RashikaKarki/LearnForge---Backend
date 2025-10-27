@@ -1,5 +1,7 @@
 """Unit tests for user endpoints."""
 
+from unittest.mock import MagicMock
+
 from fastapi import FastAPI, Request
 from starlette.testclient import TestClient
 
@@ -10,6 +12,9 @@ from app.models.user import User
 def test_get_profile_success_returns_200():
     """Should return 200 with user profile data."""
     app = FastAPI()
+
+    # Mock Firestore database
+    app.state.db = MagicMock()
 
     @app.middleware("http")
     async def mock_user(request: Request, call_next):
@@ -33,6 +38,9 @@ def test_get_profile_returns_user_id():
     """Should return user ID in response."""
     app = FastAPI()
 
+    # Mock Firestore database
+    app.state.db = MagicMock()
+
     @app.middleware("http")
     async def mock_user(request: Request, call_next):
         request.state.current_user = User(
@@ -54,6 +62,9 @@ def test_get_profile_returns_user_id():
 def test_get_profile_returns_user_email():
     """Should return user email in response."""
     app = FastAPI()
+
+    # Mock Firestore database
+    app.state.db = MagicMock()
 
     @app.middleware("http")
     async def mock_user(request: Request, call_next):
@@ -77,6 +88,9 @@ def test_get_profile_returns_user_name():
     """Should return user name in response."""
     app = FastAPI()
 
+    # Mock Firestore database
+    app.state.db = MagicMock()
+
     @app.middleware("http")
     async def mock_user(request: Request, call_next):
         request.state.current_user = User(
@@ -98,6 +112,9 @@ def test_get_profile_returns_user_name():
 def test_get_profile_includes_picture_field():
     """Should include picture field in response."""
     app = FastAPI()
+
+    # Mock Firestore database
+    app.state.db = MagicMock()
 
     @app.middleware("http")
     async def mock_user(request: Request, call_next):

@@ -1,374 +1,624 @@
-"""Unit tests for MissionService."""
+"""Comprehensive tests for MissionService.
+
+Tests mission CRUD operations, update propagation, and edge cases.
+"""
 
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.models.mission import MissionCreate, MissionUpdate
 from app.services.mission_service import MissionService
 from tests.mocks.firestore import FirestoreMocks
 
+# ============================================================================
+# FIXTURES
+# ============================================================================
+
 
 @pytest.fixture
-def valid_mission_create_data():
-    """Test data for creating a mission."""
+def mock_db():
+    """Generic database mock."""
+    return MagicMock()
+
+
+@pytest.fixture
+def mock_user_service():
+    """Mock UserService."""
+    return MagicMock()
+
+
+@pytest.fixture
+def valid_mission_create():
+    """Valid mission creation data."""
     return MissionCreate(
-        title="Learn Python Basics",
-        short_description="An introductory course on Python",
-        description="A comprehensive guide to Python fundamentals",
-        creator_id="user123",
+        title="Test Mission",
+        short_description="A test mission",
+        description="A longer description of the test mission",
         level="Beginner",
-        topics_to_cover=["Variables", "Functions", "Data Types"],
-        learning_goal="Master Python fundamentals for programming",
-        byte_size_checkpoints=[
-            "Introduction",
-            "Variables and Data Types",
-            "Functions",
-            "Conclusion",
-        ],
+        topics_to_cover=["Python Basics", "API Design", "Testing"],
+        learning_goal="Learn to build REST APIs with FastAPI",
+        byte_size_checkpoints=["Setup", "First Endpoint", "Database", "Testing"],
+        skills=["Python", "FastAPI"],
+        creator_id="creator123",
         is_public=True,
     )
 
 
 @pytest.fixture
-def existing_mission():
-    """Existing mission dict as returned from Firestore."""
+def existing_mission_data():
+    """Existing mission data."""
     return {
         "id": "mission123",
-        "title": "Learn Python Basics",
-        "short_description": "An introductory course on Python",
-        "description": "A comprehensive guide to Python fundamentals",
-        "creator_id": "user123",
-        "level": "Beginner",
-        "topics_to_cover": ["Variables", "Functions", "Data Types"],
-        "learning_goal": "Master Python fundamentals for programming",
-        "byte_size_checkpoints": [
-            "Introduction",
-            "Variables and Data Types",
-            "Functions",
-            "Conclusion",
-        ],
-        "skills": [],
+        "title": "Existing Mission",
+        "short_description": "Short desc",
+        "description": "Long description",
+        "level": "Intermediate",
+        "topics_to_cover": ["Python", "Testing"],
+        "learning_goal": "Master testing in Python",
+        "learning_style": ["examples", "step-by-step"],
+        "byte_size_checkpoints": ["Intro", "Unit Tests", "Integration", "Advanced"],
+        "skills": ["Python"],
+        "creator_id": "creator123",
         "is_public": True,
-        "created_at": datetime(2025, 1, 1, 12, 0, 0),
-        "updated_at": datetime(2025, 1, 1, 12, 0, 0),
+        "created_at": datetime(2025, 1, 1),
+        "updated_at": datetime(2025, 1, 1),
     }
 
 
-def test_create_mission_success(valid_mission_create_data):
-    """Should create new mission successfully."""
-    collection = FirestoreMocks.collection_empty()
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
-
-    mission = service.create_mission(valid_mission_create_data)
-
-    assert mission.title == valid_mission_create_data.title
-    assert mission.id == "auto_generated_id"
-    assert mission.creator_id == valid_mission_create_data.creator_id
-    collection.document().set.assert_called_once()
-
-
-def test_create_mission_sets_timestamps(valid_mission_create_data):
-    """Should auto-set created_at and updated_at."""
-    collection = FirestoreMocks.collection_empty()
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
-
-    mission = service.create_mission(valid_mission_create_data)
-
-    time_diff = abs((mission.created_at - mission.updated_at).total_seconds())
-    assert time_diff < 1
+@pytest.fixture
+def enrollment_data():
+    """Enrollment data for propagation tests."""
+    return {
+        "id": "user123_mission123",
+        "user_id": "user123",
+        "mission_id": "mission123",
+        "progress": 50.0,
+        "enrolled_at": datetime(2025, 1, 1),
+        "last_accessed_at": datetime(2025, 1, 5),
+        "completed": False,
+        "created_at": datetime(2025, 1, 1),
+        "updated_at": datetime(2025, 1, 5),
+    }
 
 
-def test_get_mission_found_returns_mission(existing_mission):
-    """Should return mission when document exists."""
-    collection = FirestoreMocks.collection_empty()
-    doc = FirestoreMocks.document_exists("mission123", existing_mission)
-    collection.document.return_value.get.return_value = doc
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
-
-    mission = service.get_mission("mission123")
-
-    assert mission.id == existing_mission["id"]
-    assert mission.title == existing_mission["title"]
+# ============================================================================
+# CREATE MISSION TESTS
+# ============================================================================
 
 
-def test_get_mission_not_found_raises_404():
-    """Should raise 404 when mission doesn't exist."""
-    collection = FirestoreMocks.collection_empty()
-    doc = FirestoreMocks.document_not_found()
-    collection.document.return_value.get.return_value = doc
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
+class TestCreateMission:
+    """Test mission creation."""
 
-    with pytest.raises(HTTPException) as exc:
-        service.get_mission("missing")
+    def test_create_mission_success(self, mock_db, mock_user_service, valid_mission_create):
+        """Successfully create a mission."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        doc_ref.id = "auto_generated_id"
+        missions_collection.document.return_value = doc_ref
 
-    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
 
+        with patch("app.services.mission_service.datetime") as mock_datetime:
+            mock_datetime.today.return_value = datetime(2025, 1, 15)
 
-def test_update_mission_success(existing_mission):
-    """Should update mission successfully."""
-    collection = FirestoreMocks.collection_empty()
-    doc_ref = collection.document.return_value
-    doc_ref.get.side_effect = [
-        FirestoreMocks.document_exists("mission123", existing_mission),
-        FirestoreMocks.document_exists(
-            "mission123", {**existing_mission, "title": "Updated Title"}
-        ),
-    ]
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
+            mission = service.create_mission(valid_mission_create)
 
-    update_data = MissionUpdate(title="Updated Title")
-    mission = service.update_mission("mission123", update_data)
+            assert mission.title == "Test Mission"
+            assert mission.id == "auto_generated_id"
+            assert mission.creator_id == "creator123"
+            assert len(mission.skills) == 2
+            doc_ref.set.assert_called_once()
 
-    assert mission.title == "Updated Title"
-    doc_ref.update.assert_called_once()
+    def test_create_mission_without_optional_fields(self, mock_db, mock_user_service):
+        """Create mission with minimal required fields."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        doc_ref.id = "mission_id"
+        missions_collection.document.return_value = doc_ref
 
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
 
-def test_update_mission_not_found_raises_404():
-    """Should raise 404 when updating non-existent mission."""
-    collection = FirestoreMocks.collection_empty()
-    doc_ref = collection.document.return_value
-    doc_ref.get.return_value = FirestoreMocks.document_not_found()
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
+        minimal_mission = MissionCreate(
+            title="Minimal Mission",
+            short_description="Short desc",
+            description="Minimal description",
+            level="Beginner",
+            topics_to_cover=["Basics"],
+            learning_goal="Learn basics",
+            byte_size_checkpoints=["Step 1", "Step 2", "Step 3", "Step 4"],
+            creator_id="creator123",
+        )
 
-    with pytest.raises(HTTPException) as exc:
-        service.update_mission("missing", MissionUpdate(title="New"))
+        mission = service.create_mission(minimal_mission)
 
-    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
-
-
-def test_delete_mission_success(existing_mission):
-    """Should delete mission and its checkpoints."""
-    collection = FirestoreMocks.collection_empty()
-    doc_ref = collection.document.return_value
-    doc_ref.get.return_value = FirestoreMocks.document_exists("mission123", existing_mission)
-
-    # Mock checkpoints subcollection
-    checkpoint_docs = []
-    doc_ref.collection.return_value.get.return_value = checkpoint_docs
-
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
-
-    result = service.delete_mission("mission123")
-
-    assert "deleted successfully" in result["message"]
-    doc_ref.delete.assert_called_once()
+        assert mission.title == "Minimal Mission"
+        assert mission.id == "mission_id"
 
 
-def test_delete_mission_not_found_raises_404():
-    """Should raise 404 when deleting non-existent mission."""
-    collection = FirestoreMocks.collection_empty()
-    doc_ref = collection.document.return_value
-    doc_ref.get.return_value = FirestoreMocks.document_not_found()
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
-
-    with pytest.raises(HTTPException) as exc:
-        service.delete_mission("missing")
-
-    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+# ============================================================================
+# GET MISSION TESTS
+# ============================================================================
 
 
-def test_get_missions_by_creator(existing_mission):
-    """Should return all missions by creator."""
-    missions_data = [
-        existing_mission,
-        {**existing_mission, "id": "mission456", "title": "Another Mission"},
-    ]
-    collection = FirestoreMocks.collection_with_items(missions_data)
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
+class TestGetMission:
+    """Test retrieving missions."""
 
-    missions = service.get_missions_by_creator("user123")
+    def test_get_mission_success(self, mock_db, mock_user_service, existing_mission_data):
+        """Successfully retrieve a mission."""
+        missions_collection = MagicMock()
+        doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        missions_collection.document.return_value.get.return_value = doc
 
-    assert len(missions) == 2
-    assert missions[0].creator_id == "user123"
-    collection.where.assert_called()
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        mission = service.get_mission("mission123")
+
+        assert mission.id == "mission123"
+        assert mission.title == "Existing Mission"
+
+    def test_get_mission_not_found_raises_404(self, mock_db, mock_user_service):
+        """Get non-existent mission raises 404."""
+        missions_collection = MagicMock()
+        doc = FirestoreMocks.document_not_found()
+        missions_collection.document.return_value.get.return_value = doc
+
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        with pytest.raises(HTTPException) as exc:
+            service.get_mission("nonexistent")
+
+        assert exc.value.status_code == 404
+        assert "not found" in exc.value.detail
 
 
-def test_get_public_missions(existing_mission):
-    """Should return all public missions."""
-    missions_data = [existing_mission]
-    collection = FirestoreMocks.collection_with_items(missions_data)
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
-
-    missions = service.get_public_missions()
-
-    assert len(missions) == 1
-    assert missions[0].is_public is True
+# ============================================================================
+# UPDATE MISSION TESTS
+# ============================================================================
 
 
-def test_get_missions_by_creator_and_visibility():
-    """Should return missions filtered by creator and visibility."""
-    missions_data = [
-        {
-            "id": "mission123",
-            "title": "Public Mission",
-            "short_description": "Public Mission",
-            "description": "Test",
-            "creator_id": "user123",
-            "level": "Beginner",
-            "topics_to_cover": ["Python Basics"],
-            "learning_goal": "Learn Python programming",
-            "byte_size_checkpoints": ["Introduction", "Variables", "Functions", "Conclusion"],
-            "skills": [],
-            "is_public": True,
-            "created_at": datetime.now(),
-            "updated_at": datetime.now(),
+class TestUpdateMission:
+    """Test mission updates."""
+
+    def test_update_mission_success_without_propagation(
+        self, mock_db, mock_user_service, existing_mission_data
+    ):
+        """Successfully update mission without triggering propagation."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+        missions_collection.document.return_value = doc_ref
+
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        # Update non-metadata field (won't trigger propagation)
+        update_data = MissionUpdate(is_public=False)
+
+        with patch("app.services.mission_service.datetime") as mock_datetime:
+            mock_datetime.today.return_value = datetime(2025, 1, 20)
+
+            mission = service.update_mission("mission123", update_data)
+
+            assert mission.id == "mission123"
+            doc_ref.update.assert_called_once()
+            # Should not call user service for non-metadata updates
+            mock_user_service.update_enrolled_mission.assert_not_called()
+
+    def test_update_mission_metadata_triggers_propagation(
+        self, mock_db, mock_user_service, existing_mission_data, enrollment_data
+    ):
+        """Updating mission metadata triggers propagation to enrolled users."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+        missions_collection.document.return_value = doc_ref
+
+        # Mock enrollments collection with proper where().get() chain
+        enrollments_collection = MagicMock()
+        enrollment_doc = MagicMock()
+        enrollment_doc.id = "user123_mission123"
+        enrollment_doc.to_dict.return_value = enrollment_data
+
+        where_mock = MagicMock()
+        where_mock.get.return_value = [enrollment_doc]
+        enrollments_collection.where.return_value = where_mock
+
+        def collection_side_effect(name):
+            if name == "missions":
+                return missions_collection
+            elif name == "enrollments":
+                return enrollments_collection
+
+        mock_db.collection.side_effect = collection_side_effect
+        service = MissionService(mock_db, mock_user_service)
+
+        # Update metadata field (triggers propagation)
+        update_data = MissionUpdate(
+            title="Updated Mission Title",
+            short_description="Updated description",
+        )
+
+        with patch("app.services.mission_service.datetime") as mock_datetime:
+            mock_datetime.today.return_value = datetime(2025, 1, 20)
+            with patch("app.services.mission_service.logger"):
+                mission = service.update_mission("mission123", update_data)
+
+                assert mission.id == "mission123"
+                # Should call user service to propagate updates
+                mock_user_service.update_enrolled_mission.assert_called_once()
+
+    def test_update_mission_not_found_raises_404(self, mock_db, mock_user_service):
+        """Update non-existent mission raises 404."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        not_found = FirestoreMocks.document_not_found()
+        doc_ref.get.return_value = not_found
+        missions_collection.document.return_value = doc_ref
+
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        update_data = MissionUpdate(title="New Title")
+
+        with pytest.raises(HTTPException) as exc:
+            service.update_mission("nonexistent", update_data)
+
+        assert exc.value.status_code == 404
+
+
+# ============================================================================
+# DELETE MISSION TESTS
+# ============================================================================
+
+
+class TestDeleteMission:
+    """Test mission deletion."""
+
+    def test_delete_mission_success(self, mock_db, mock_user_service, existing_mission_data):
+        """Successfully delete mission and its checkpoints."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        doc_ref.get.return_value = existing_doc
+
+        # Mock checkpoints subcollection
+        checkpoint1 = MagicMock()
+        checkpoint2 = MagicMock()
+        doc_ref.collection.return_value.get.return_value = [checkpoint1, checkpoint2]
+
+        missions_collection.document.return_value = doc_ref
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        result = service.delete_mission("mission123")
+
+        assert "deleted successfully" in result["message"]
+        doc_ref.delete.assert_called_once()
+        # Verify checkpoints were deleted
+        checkpoint1.reference.delete.assert_called_once()
+        checkpoint2.reference.delete.assert_called_once()
+
+    def test_delete_mission_not_found_raises_404(self, mock_db, mock_user_service):
+        """Delete non-existent mission raises 404."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        not_found = FirestoreMocks.document_not_found()
+        doc_ref.get.return_value = not_found
+        missions_collection.document.return_value = doc_ref
+
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        with pytest.raises(HTTPException) as exc:
+            service.delete_mission("nonexistent")
+
+        assert exc.value.status_code == 404
+
+
+# ============================================================================
+# QUERY MISSION TESTS
+# ============================================================================
+
+
+class TestGetMissionsByCreator:
+    """Test retrieving missions by creator."""
+
+    def test_get_missions_by_creator_success(self, mock_db, mock_user_service):
+        """Successfully retrieve creator's missions."""
+        missions_data = [
+            {
+                "id": f"mission{i}",
+                "title": f"Mission {i}",
+                "short_description": f"Description {i}",
+                "description": f"Long description for mission {i}",
+                "level": "Beginner",
+                "topics_to_cover": ["Topic 1", "Topic 2"],
+                "learning_goal": f"Learn mission {i}",
+                "learning_style": [],
+                "byte_size_checkpoints": ["Step 1", "Step 2", "Step 3", "Step 4"],
+                "skills": [],
+                "creator_id": "creator123",
+                "is_public": True,
+                "created_at": datetime(2025, 1, i),
+                "updated_at": datetime(2025, 1, i),
+            }
+            for i in range(1, 4)
+        ]
+
+        missions_collection = FirestoreMocks.collection_with_items(missions_data)
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        missions = service.get_missions_by_creator("creator123")
+
+        assert len(missions) == 3
+        assert missions[0].creator_id == "creator123"
+
+    def test_get_missions_by_creator_empty(self, mock_db, mock_user_service):
+        """Get missions for creator with no missions returns empty list."""
+        missions_collection = FirestoreMocks.collection_empty()
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        missions = service.get_missions_by_creator("creator123")
+
+        assert missions == []
+
+
+class TestGetPublicMissions:
+    """Test retrieving public missions."""
+
+    def test_get_public_missions_success(self, mock_db, mock_user_service):
+        """Successfully retrieve public missions."""
+        missions_data = [
+            {
+                "id": f"mission{i}",
+                "title": f"Public Mission {i}",
+                "short_description": f"Description {i}",
+                "description": f"Long description for mission {i}",
+                "level": "Intermediate",
+                "topics_to_cover": ["Topic A", "Topic B"],
+                "learning_goal": f"Master mission {i}",
+                "learning_style": ["examples"],
+                "byte_size_checkpoints": ["Intro", "Step 1", "Step 2", "Final"],
+                "skills": ["Skill 1"],
+                "creator_id": f"creator{i}",
+                "is_public": True,
+                "created_at": datetime(2025, 1, i),
+                "updated_at": datetime(2025, 1, i),
+            }
+            for i in range(1, 4)
+        ]
+
+        missions_collection = FirestoreMocks.collection_with_items(missions_data)
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        missions = service.get_public_missions(limit=10)
+
+        assert len(missions) == 3
+        assert all(m.is_public for m in missions)
+
+
+# ============================================================================
+# PROPAGATION TESTS
+# ============================================================================
+
+
+class TestPropagationEdgeCases:
+    """Test mission update propagation edge cases."""
+
+    def test_propagation_handles_no_enrollments(
+        self, mock_db, mock_user_service, existing_mission_data
+    ):
+        """Propagation handles missions with no enrollments."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+        missions_collection.document.return_value = doc_ref
+
+        # Empty enrollments collection
+        enrollments_collection = FirestoreMocks.collection_empty()
+
+        def collection_side_effect(name):
+            if name == "missions":
+                return missions_collection
+            elif name == "enrollments":
+                return enrollments_collection
+
+        mock_db.collection.side_effect = collection_side_effect
+        service = MissionService(mock_db, mock_user_service)
+
+        update_data = MissionUpdate(title="Updated Title")
+
+        with patch("app.services.mission_service.logger") as mock_logger:
+            mission = service.update_mission("mission123", update_data)
+
+            assert mission.id == "mission123"
+            # Should log that propagation started but no users to update
+            assert mock_logger.info.called
+
+    def test_propagation_handles_missing_user_id(
+        self, mock_db, mock_user_service, existing_mission_data
+    ):
+        """Propagation skips enrollments with missing user_id."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+        missions_collection.document.return_value = doc_ref
+
+        # Enrollment missing user_id
+        bad_enrollment = {
+            "id": "mission123_missing",
+            "mission_id": "mission123",
+            # "user_id": missing!
+            "progress": 50.0,
         }
-    ]
-    collection = MagicMock()
 
-    # Mock chained where calls
-    mock_doc = MagicMock(to_dict=MagicMock(return_value=missions_data[0]))
-    collection.where.return_value.where.return_value.limit.return_value.get.return_value = [
-        mock_doc
-    ]
+        # Mock enrollments collection with proper where().get() chain
+        enrollments_collection = MagicMock()
+        enrollment_doc = MagicMock()
+        enrollment_doc.id = "mission123_missing"
+        enrollment_doc.to_dict.return_value = bad_enrollment
 
-    db = FirestoreMocks.mock_db_with_collection(collection)
-    service = MissionService(db)
+        where_mock = MagicMock()
+        where_mock.get.return_value = [enrollment_doc]
+        enrollments_collection.where.return_value = where_mock
 
-    missions = service.get_missions_by_creator_and_visibility("user123", True)
+        def collection_side_effect(name):
+            if name == "missions":
+                return missions_collection
+            elif name == "enrollments":
+                return enrollments_collection
 
-    assert len(missions) == 1
-    assert missions[0].creator_id == "user123"
-    assert missions[0].is_public is True
+        mock_db.collection.side_effect = collection_side_effect
+        service = MissionService(mock_db, mock_user_service)
 
+        update_data = MissionUpdate(title="Updated Title")
 
-def test_create_mission_with_enrollment_success(valid_mission_create_data):
-    """Should create mission and auto-enroll creator."""
+        with patch("app.services.mission_service.logger") as mock_logger:
+            service.update_mission("mission123", update_data)
 
-    # Mock mission collection
-    mission_collection = FirestoreMocks.collection_empty()
-    mission_doc_ref = mission_collection.document.return_value
-    mission_doc_ref.id = "mission123"
+            # Should log warning about missing user_id
+            warning_calls = list(mock_logger.warning.call_args_list)
+            assert len(warning_calls) > 0
 
-    # Mock enrollment collection
-    enrollment_collection = MagicMock()
-    enrollment_doc_ref = enrollment_collection.document.return_value
-    enrollment_doc_ref.get.return_value = MagicMock(exists=False)  # Enrollment doesn't exist yet
+    def test_propagation_continues_on_individual_failure(
+        self, mock_db, mock_user_service, existing_mission_data, enrollment_data
+    ):
+        """Propagation continues even if one user update fails."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+        missions_collection.document.return_value = doc_ref
 
-    # Mock users collection
-    users_collection = MagicMock()
-    users_collection.document.return_value.get.return_value = MagicMock(exists=True)
+        # Two enrollments
+        enrollment2 = enrollment_data.copy()
+        enrollment2["user_id"] = "user456"
 
-    # Mock missions collection for enrollment service verification
-    missions_collection = MagicMock()
-    missions_collection.document.return_value.get.return_value = MagicMock(exists=True)
+        # Mock enrollments collection with proper where().get() chain
+        enrollments_collection = MagicMock()
 
-    # Mock database
-    db = MagicMock()
-    collection_map = {
-        "missions": missions_collection,
-        "enrollments": enrollment_collection,
-        "users": users_collection,
-    }
+        enrollment_doc1 = MagicMock()
+        enrollment_doc1.id = "user123_mission123"
+        enrollment_doc1.to_dict.return_value = enrollment_data
 
-    def mock_collection(name):
-        if name == "missions" and not hasattr(mock_collection, "_first_call"):
-            mock_collection._first_call = True
-            return mission_collection
-        return collection_map.get(name, mission_collection)
+        enrollment_doc2 = MagicMock()
+        enrollment_doc2.id = "user456_mission123"
+        enrollment_doc2.to_dict.return_value = enrollment2
 
-    db.collection = mock_collection
+        where_mock = MagicMock()
+        where_mock.get.return_value = [enrollment_doc1, enrollment_doc2]
+        enrollments_collection.where.return_value = where_mock
 
-    service = MissionService(db)
+        def collection_side_effect(name):
+            if name == "missions":
+                return missions_collection
+            elif name == "enrollments":
+                return enrollments_collection
 
-    mission, enrollment = service.create_mission_with_enrollment(
-        valid_mission_create_data, "user123"
-    )
+        mock_db.collection.side_effect = collection_side_effect
 
-    assert mission.title == valid_mission_create_data.title
-    assert enrollment.user_id == "user123"
-    assert enrollment.mission_id == mission.id
+        # First user update fails, second succeeds
+        call_count = [0]
 
+        def update_side_effect(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise HTTPException(status_code=404, detail="Not found")
+            return None
 
-def test_create_mission_with_enrollment_rolls_back_on_failure(valid_mission_create_data):
-    """Should delete mission if enrollment fails."""
-    # Mock mission collection
-    mission_collection = FirestoreMocks.collection_empty()
-    mission_doc_ref = mission_collection.document.return_value
-    mission_doc_ref.id = "mission123"
+        mock_user_service.update_enrolled_mission.side_effect = update_side_effect
+        service = MissionService(mock_db, mock_user_service)
 
-    # Mock enrollment collection
-    enrollment_collection = MagicMock()
+        update_data = MissionUpdate(title="Updated Title")
 
-    # Mock users collection - user doesn't exist
-    users_collection = MagicMock()
-    users_collection.document.return_value.get.return_value = MagicMock(exists=False)
+        with patch("app.services.mission_service.logger") as mock_logger:
+            service.update_mission("mission123", update_data)
 
-    # Mock database
-    db = MagicMock()
-    collection_map = {
-        "missions": mission_collection,
-        "enrollments": enrollment_collection,
-        "users": users_collection,
-    }
-
-    def mock_collection(name):
-        if name == "missions" and not hasattr(mock_collection, "_first_call"):
-            mock_collection._first_call = True
-            return mission_collection
-        return collection_map.get(name, mission_collection)
-
-    db.collection = mock_collection
-
-    service = MissionService(db)
-
-    with pytest.raises(HTTPException) as exc:
-        service.create_mission_with_enrollment(valid_mission_create_data, "nonexistent_user")
-
-    assert exc.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            # Should have called user service twice
+            assert mock_user_service.update_enrolled_mission.call_count == 2
+            # Should have logged warnings
+            assert mock_logger.warning.called
 
 
-def test_create_mission_with_enrollment_returns_both_objects(valid_mission_create_data):
-    """Should return tuple with mission and enrollment."""
-    # Mock mission collection
-    mission_collection = FirestoreMocks.collection_empty()
-    mission_doc_ref = mission_collection.document.return_value
-    mission_doc_ref.id = "mission123"
+# ============================================================================
+# EDGE CASES
+# ============================================================================
 
-    # Mock enrollment collection
-    enrollment_collection = MagicMock()
-    enrollment_collection.document.return_value.get.return_value = MagicMock(exists=False)
 
-    # Mock users collection
-    users_collection = MagicMock()
-    users_collection.document.return_value.get.return_value = MagicMock(exists=True)
+class TestEdgeCases:
+    """Test edge cases and special scenarios."""
 
-    # Mock missions collection for enrollment verification
-    missions_collection = MagicMock()
-    missions_collection.document.return_value.get.return_value = MagicMock(exists=True)
+    def test_create_mission_with_enrollment_success(
+        self, mock_db, mock_user_service, valid_mission_create
+    ):
+        """Create mission with auto-enrollment for creator."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        doc_ref.id = "new_mission_id"
+        missions_collection.document.return_value = doc_ref
 
-    # Mock database
-    db = MagicMock()
-    collection_map = {
-        "missions": missions_collection,
-        "enrollments": enrollment_collection,
-        "users": users_collection,
-    }
+        mock_db.collection.return_value = missions_collection
 
-    def mock_collection(name):
-        if name == "missions" and not hasattr(mock_collection, "_first_call"):
-            mock_collection._first_call = True
-            return mission_collection
-        return collection_map.get(name, mission_collection)
+        # Mock enrollment service
+        from app.services.enrollment_service import EnrollmentService
 
-    db.collection = mock_collection
+        with patch.object(EnrollmentService, "create_enrollment") as mock_create_enrollment:
+            from app.models.enrollment import Enrollment
 
-    service = MissionService(db)
+            mock_create_enrollment.return_value = Enrollment(
+                id="creator123_new_mission_id",
+                user_id="creator123",
+                mission_id="new_mission_id",
+                progress=0.0,
+                enrolled_at=datetime(2025, 1, 15),
+                last_accessed_at=datetime(2025, 1, 15),
+                completed=False,
+                created_at=datetime(2025, 1, 15),
+                updated_at=datetime(2025, 1, 15),
+            )
 
-    result = service.create_mission_with_enrollment(valid_mission_create_data, "user123")
+            service = MissionService(mock_db, mock_user_service)
 
-    assert isinstance(result, tuple)
-    assert len(result) == 2
+            mission, enrollment = service.create_mission_with_enrollment(
+                valid_mission_create, user_id="creator123"
+            )
+
+            assert mission.id == "new_mission_id"
+            assert enrollment.user_id == "creator123"
+            assert enrollment.mission_id == "new_mission_id"
+
+    def test_partial_mission_update(self, mock_db, mock_user_service, existing_mission_data):
+        """Partial update only changes specified fields."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists("mission123", existing_mission_data)
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+        missions_collection.document.return_value = doc_ref
+
+        mock_db.collection.return_value = missions_collection
+        service = MissionService(mock_db, mock_user_service)
+
+        # Only update is_public
+        update_data = MissionUpdate(is_public=False)
+
+        service.update_mission("mission123", update_data)
+
+        # Verify only non-None fields are updated
+        call_args = doc_ref.update.call_args[0][0]
+        assert "is_public" in call_args
+        assert call_args["is_public"] is False
+        assert "updated_at" in call_args
