@@ -9,18 +9,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from app.models.user import (
-    User,
-    UserCreate,
-    UserEnrolledMission,
-    UserEnrolledMissionCreate,
-    UserEnrolledMissionUpdate,
-)
+from app.models.user import UserCreate, UserEnrolledMissionCreate, UserEnrolledMissionUpdate
 from app.services.user_service import UserService
 from tests.mocks.firestore import FirestoreMocks
 
 # ============================================================================
-# FIXTURES - Test data stays in this file for visibility
+# FIXTURES
 # ============================================================================
 
 

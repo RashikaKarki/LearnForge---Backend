@@ -10,12 +10,11 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.enrollment import EnrollmentCreate, EnrollmentUpdate
-from app.models.user import UserEnrolledMissionCreate
 from app.services.enrollment_service import EnrollmentService
 from tests.mocks.firestore import FirestoreMocks
 
 # ============================================================================
-# FIXTURES - Test data stays in this file
+# FIXTURES
 # ============================================================================
 
 
@@ -507,7 +506,7 @@ class TestUpdateLastAccessed:
             now = datetime(2025, 1, 20, 15, 30, 0)
             mock_datetime.today.return_value = now
 
-            enrollment = service.update_last_accessed("user123", "mission456")
+            service.update_last_accessed("user123", "mission456")
 
             # Verify both global and user service were updated
             mock_user_service.update_enrolled_mission.assert_called_once()
@@ -566,7 +565,7 @@ class TestEdgeCases:
         update_data = EnrollmentUpdate(progress=50.0)
 
         # Should not raise, just log the error
-        with patch("app.services.enrollment_service.logger") as mock_logger:
+        with patch("app.services.enrollment_service.logger"):
             try:
                 service.update_enrollment("user123", "mission456", update_data)
             except Exception:

@@ -108,7 +108,7 @@ class EnrollmentService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to create enrollment: {str(e)}",
-            )
+            ) from e
 
         return Enrollment(**enrollment_data)
 

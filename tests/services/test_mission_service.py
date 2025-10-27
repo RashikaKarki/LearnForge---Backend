@@ -488,10 +488,10 @@ class TestPropagationEdgeCases:
         update_data = MissionUpdate(title="Updated Title")
 
         with patch("app.services.mission_service.logger") as mock_logger:
-            mission = service.update_mission("mission123", update_data)
+            service.update_mission("mission123", update_data)
 
             # Should log warning about missing user_id
-            warning_calls = [call for call in mock_logger.warning.call_args_list]
+            warning_calls = list(mock_logger.warning.call_args_list)
             assert len(warning_calls) > 0
 
     def test_propagation_continues_on_individual_failure(
@@ -546,7 +546,7 @@ class TestPropagationEdgeCases:
         update_data = MissionUpdate(title="Updated Title")
 
         with patch("app.services.mission_service.logger") as mock_logger:
-            mission = service.update_mission("mission123", update_data)
+            service.update_mission("mission123", update_data)
 
             # Should have called user service twice
             assert mock_user_service.update_enrolled_mission.call_count == 2
