@@ -32,9 +32,7 @@ def valid_checkpoint_create_data():
     """Test data for creating a checkpoint."""
     return CheckpointCreate(
         title="Introduction to Variables",
-        content="Learn about Python variables and data types",
         order=1,
-        sources={"Python Docs": "https://docs.python.org"},
     )
 
 
@@ -43,13 +41,7 @@ def valid_checkpoint_create_with_quiz(sample_quiz_question):
     """Test data for creating a checkpoint with quiz questions."""
     return CheckpointCreate(
         title="Python Basics",
-        content="Introduction to Python programming",
         order=1,
-        sources={
-            "Python Docs": "https://docs.python.org",
-            "Real Python": "https://realpython.com",
-        },
-        quiz_questions=[sample_quiz_question],
     )
 
 
@@ -107,7 +99,7 @@ def test_create_checkpoint_mission_not_found_raises_404(valid_checkpoint_create_
 
 
 def test_create_checkpoint_with_quiz_questions(valid_checkpoint_create_with_quiz):
-    """Should create checkpoint with quiz questions."""
+    """Should create checkpoint successfully."""
     missions_collection = MagicMock()
     checkpoints_collection = FirestoreMocks.collection_empty()
 
@@ -123,11 +115,7 @@ def test_create_checkpoint_with_quiz_questions(valid_checkpoint_create_with_quiz
     checkpoint = service.create_checkpoint("mission123", valid_checkpoint_create_with_quiz)
 
     assert checkpoint.title == valid_checkpoint_create_with_quiz.title
-    assert len(checkpoint.quiz_questions) == 1
-    assert checkpoint.quiz_questions[0].question == "What is Python?"
-    assert len(checkpoint.sources) == 2
-    assert "Python Docs" in checkpoint.sources
-    assert "Real Python" in checkpoint.sources
+    assert checkpoint.mission_id == "mission123"
     checkpoints_collection.document().set.assert_called_once()
 
 

@@ -90,23 +90,18 @@ def test_checkpoint_create_valid():
     """Should create CheckpointCreate with required fields."""
     checkpoint_create = CheckpointCreate(
         title="Introduction",
-        content="Content here",
         order=1,
-        sources={"Example Source": "https://example.com"},
     )
 
     assert checkpoint_create.title == "Introduction"
-    assert checkpoint_create.content == "Content here"
     assert checkpoint_create.order == 1
-    assert checkpoint_create.sources == {"Example Source": "https://example.com"}
 
 
 @pytest.mark.parametrize(
     "missing_field,data",
     [
-        ("title", {"content": "Content", "order": 1}),
-        ("content", {"title": "Title", "order": 1}),
-        ("order", {"title": "Title", "content": "Content"}),
+        ("title", {"order": 1}),
+        ("order", {"title": "Title"}),
     ],
 )
 def test_checkpoint_create_missing_required_field_raises(missing_field, data):
@@ -262,30 +257,14 @@ def test_checkpoint_quiz_questions_defaults_to_empty_list():
 
 
 def test_checkpoint_create_with_quiz_questions():
-    """Should create CheckpointCreate with quiz questions."""
-    quiz = QuizQuestion(
-        question="What is AI?",
-        options={
-            "a": "Artificial Intelligence",
-            "b": "Automated Input",
-            "c": "Advanced Internet",
-            "d": "None of the above",
-        },
-        right_option_key="a",
-        explanation="AI stands for Artificial Intelligence.",
-    )
-
+    """Should create CheckpointCreate with only title and order."""
     checkpoint_create = CheckpointCreate(
         title="AI Introduction",
-        content="Introduction to AI concepts",
         order=1,
-        sources={"AI Wiki": "https://example.com"},
-        quiz_questions=[quiz],
     )
 
     assert checkpoint_create.title == "AI Introduction"
-    assert len(checkpoint_create.quiz_questions) == 1
-    assert checkpoint_create.quiz_questions[0].question == "What is AI?"
+    assert checkpoint_create.order == 1
 
 
 def test_checkpoint_update_with_quiz_questions():

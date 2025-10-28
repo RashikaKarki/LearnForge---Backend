@@ -42,15 +42,7 @@ class Checkpoint(BaseModel):
 
 class CheckpointCreate(BaseModel):
     title: str
-    content: str
     order: int
-    sources: dict[str, str] | None = Field(
-        default_factory=dict,
-        description="Mapping of source names to URLs (e.g., {'Python Docs': 'https://docs.python.org'})",
-    )
-    quiz_questions: list[QuizQuestion] | None = Field(
-        default_factory=list, description="List of quiz questions for this checkpoint"
-    )
 
 
 class CheckpointUpdate(BaseModel):
