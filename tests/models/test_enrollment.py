@@ -262,7 +262,7 @@ def test_enrollment_with_checkpoint_progress():
         title="Advanced Topics",
         completed=False,
     )
-    
+
     enrollment = Enrollment(
         id="user123_mission123",
         user_id="user123",
