@@ -238,6 +238,47 @@ def test_enrollment_completed_accepts_boolean():
     assert enrollment_false.completed is False
 
 
+def test_enrollment_checkpoint_progress_defaults_to_empty_list():
+    """Should default checkpoint_progress to empty list when not provided."""
+    enrollment = Enrollment(
+        id="user123_mission123",
+        user_id="user123",
+        mission_id="mission123",
+    )
+
+    assert enrollment.checkpoint_progress == []
+    assert isinstance(enrollment.checkpoint_progress, list)
+
+
+def test_enrollment_with_checkpoint_progress():
+    """Should accept checkpoint_progress as a list of CheckpointProgress."""
+    checkpoint1 = CheckpointProgress(
+        checkpoint_id="checkpoint1",
+        title="Introduction",
+        completed=True,
+    )
+    checkpoint2 = CheckpointProgress(
+        checkpoint_id="checkpoint2",
+        title="Advanced Topics",
+        completed=False,
+    )
+
+    enrollment = Enrollment(
+        id="user123_mission123",
+        user_id="user123",
+        mission_id="mission123",
+        checkpoint_progress=[checkpoint1, checkpoint2],
+    )
+
+    assert len(enrollment.checkpoint_progress) == 2
+    assert enrollment.checkpoint_progress[0].checkpoint_id == "checkpoint1"
+    assert enrollment.checkpoint_progress[0].title == "Introduction"
+    assert enrollment.checkpoint_progress[0].completed is True
+    assert enrollment.checkpoint_progress[1].checkpoint_id == "checkpoint2"
+    assert enrollment.checkpoint_progress[1].title == "Advanced Topics"
+    assert enrollment.checkpoint_progress[1].completed is False
+
+
 # CheckpointProgress Model Tests
 
 
@@ -245,10 +286,12 @@ def test_checkpoint_progress_model_valid_creation():
     """Should create checkpoint progress with required fields."""
     checkpoint_progress = CheckpointProgress(
         checkpoint_id="checkpoint123",
+        title="Complete Introduction",
         completed=True,
     )
 
     assert checkpoint_progress.checkpoint_id == "checkpoint123"
+    assert checkpoint_progress.title == "Complete Introduction"
     assert checkpoint_progress.completed is True
     assert isinstance(checkpoint_progress.created_at, datetime)
     assert isinstance(checkpoint_progress.updated_at, datetime)
@@ -258,6 +301,7 @@ def test_checkpoint_progress_defaults_to_false():
     """Should default completed to False when not provided."""
     checkpoint_progress = CheckpointProgress(
         checkpoint_id="checkpoint123",
+        title="Complete Introduction",
     )
 
     assert checkpoint_progress.completed is False
@@ -268,16 +312,37 @@ def test_checkpoint_progress_defaults_to_false():
 def test_checkpoint_progress_missing_checkpoint_id_raises():
     """Should raise ValidationError when checkpoint_id is missing."""
     with pytest.raises(ValidationError):
-        CheckpointProgress(completed=True)
+        CheckpointProgress(title="Complete Introduction", completed=True)
+
+
+def test_checkpoint_progress_missing_title_raises():
+    """Should raise ValidationError when title is missing."""
+    with pytest.raises(ValidationError):
+        CheckpointProgress(checkpoint_id="checkpoint123", completed=True)
+
+
+@pytest.mark.parametrize(
+    "missing_field,data",
+    [
+        ("checkpoint_id", {"title": "Complete Introduction"}),
+        ("title", {"checkpoint_id": "checkpoint123"}),
+    ],
+)
+def test_checkpoint_progress_missing_required_field_raises(missing_field, data):
+    """Should raise ValidationError when required field is missing in CheckpointProgress."""
+    with pytest.raises(ValidationError):
+        CheckpointProgress(**data)
 
 
 def test_checkpoint_progress_create_valid():
     """Should create CheckpointProgressCreate with required fields."""
     checkpoint_progress_create = CheckpointProgressCreate(
         checkpoint_id="checkpoint123",
+        title="Complete Introduction",
     )
 
     assert checkpoint_progress_create.checkpoint_id == "checkpoint123"
+    assert checkpoint_progress_create.title == "Complete Introduction"
     assert checkpoint_progress_create.completed is False
 
 
@@ -285,17 +350,38 @@ def test_checkpoint_progress_create_with_completed():
     """Should create CheckpointProgressCreate with completed field."""
     checkpoint_progress_create = CheckpointProgressCreate(
         checkpoint_id="checkpoint123",
+        title="Complete Introduction",
         completed=True,
     )
 
     assert checkpoint_progress_create.checkpoint_id == "checkpoint123"
+    assert checkpoint_progress_create.title == "Complete Introduction"
     assert checkpoint_progress_create.completed is True
 
 
 def test_checkpoint_progress_create_missing_checkpoint_id_raises():
     """Should raise ValidationError when checkpoint_id is missing."""
     with pytest.raises(ValidationError):
-        CheckpointProgressCreate(completed=True)
+        CheckpointProgressCreate(title="Complete Introduction", completed=True)
+
+
+def test_checkpoint_progress_create_missing_title_raises():
+    """Should raise ValidationError when title is missing."""
+    with pytest.raises(ValidationError):
+        CheckpointProgressCreate(checkpoint_id="checkpoint123", completed=True)
+
+
+@pytest.mark.parametrize(
+    "missing_field,data",
+    [
+        ("checkpoint_id", {"title": "Complete Introduction"}),
+        ("title", {"checkpoint_id": "checkpoint123"}),
+    ],
+)
+def test_checkpoint_progress_create_missing_required_field_raises(missing_field, data):
+    """Should raise ValidationError when required field is missing in CheckpointProgressCreate."""
+    with pytest.raises(ValidationError):
+        CheckpointProgressCreate(**data)
 
 
 def test_checkpoint_progress_update_valid():
@@ -319,6 +405,7 @@ def test_checkpoint_progress_accepts_boolean_values(completed_value):
     """Should accept True and False for completed field."""
     checkpoint_progress = CheckpointProgress(
         checkpoint_id="checkpoint123",
+        title="Complete Introduction",
         completed=completed_value,
     )
 

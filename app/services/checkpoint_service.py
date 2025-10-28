@@ -31,8 +31,10 @@ class CheckpointService:
         checkpoint_data = data.model_dump()
         checkpoint_data["id"] = doc_ref.id
         checkpoint_data["mission_id"] = mission_id
+        checkpoint_data["content"] = ""  # Default empty content
+        checkpoint_data["sources"] = {}  # Default empty sources
+        checkpoint_data["quiz_questions"] = []  # Default empty quiz questions
         checkpoint_data["created_at"] = datetime.today()
-        checkpoint_data["updated_at"] = datetime.today()
 
         doc_ref.set(checkpoint_data)
         return Checkpoint(**checkpoint_data)
