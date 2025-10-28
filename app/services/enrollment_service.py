@@ -4,11 +4,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter
 
-from app.models.enrollment import (
-    Enrollment,
-    EnrollmentCreate,
-    EnrollmentUpdate,
-)
+from app.models.enrollment import Enrollment, EnrollmentCreate, EnrollmentUpdate
 from app.models.user import UserEnrolledMissionCreate, UserEnrolledMissionUpdate
 from app.utils.firestore_exception import handle_firestore_exceptions
 
@@ -265,4 +261,3 @@ class EnrollmentService:
 
         updated_doc = doc_ref.get()
         return Enrollment(**updated_doc.to_dict())
-
