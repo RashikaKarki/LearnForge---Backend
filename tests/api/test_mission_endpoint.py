@@ -220,8 +220,6 @@ def test_create_mission_with_enrollment_service_error(test_user, valid_mission_c
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
-
-
 # Tests for GET /missions/{mission_id}
 def test_get_mission_success(test_mission):
     """Test successful retrieval of a mission."""
