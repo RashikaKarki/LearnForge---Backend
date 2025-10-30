@@ -19,14 +19,13 @@ async def get_profile(
     Args:
         limit: Maximum number of enrolled missions to return (only if include_enrollments=True)
     """
-       # Get user with enrolled missions (2 queries)
+    # Get user with enrolled missions (2 queries)
     user_service = UserService(db)
     basic_user = user_service.get_user(current_user.id)
 
     # Combine user data with enrolled missions
     user_dict = basic_user.model_dump()
     return User(**user_dict)
-
 
 
 @router.get("/enrolled-missions", response_model=list[UserEnrolledMission])

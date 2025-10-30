@@ -119,15 +119,18 @@ def test_create_mission_with_enrollment_success(
         assert response.json()["enrollment"]["id"] == test_enrollment.id
 
 
-def test_create_mission_with_enrollment_uses_authenticated_user(test_user, valid_mission_create_data):
+def test_create_mission_with_enrollment_uses_authenticated_user(
+    test_user, valid_mission_create_data
+):
     """Test mission creator_id is set from authenticated user."""
     app = FastAPI()
     app.include_router(router, prefix="/missions")
     app.dependency_overrides[get_db] = lambda: MagicMock()
     app.dependency_overrides[get_current_user] = lambda: test_user
 
-    from app.models.mission import Mission
     from app.models.enrollment import Enrollment
+    from app.models.mission import Mission
+
     test_mission = Mission(
         id="mission123",
         title="Learn Python",

@@ -146,7 +146,11 @@ class TestCreateEnrollment:
             assert call_args[1]["user_id"] == "user123"
             # Verify byte_size_checkpoints and completed_checkpoints are passed
             user_enrolled_data = call_args[1]["data"]
-            assert user_enrolled_data.byte_size_checkpoints == ["checkpoint1", "checkpoint2", "checkpoint3"]
+            assert user_enrolled_data.byte_size_checkpoints == [
+                "checkpoint1",
+                "checkpoint2",
+                "checkpoint3",
+            ]
             assert user_enrolled_data.completed_checkpoints == []
 
     def test_create_enrollment_user_not_found_raises_404(

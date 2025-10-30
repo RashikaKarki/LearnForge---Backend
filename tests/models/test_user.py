@@ -3,8 +3,9 @@
 Focus: Data validation and model structure only.
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 from pydantic import ValidationError
 
 from app.models.user import (

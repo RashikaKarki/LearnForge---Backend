@@ -1,15 +1,16 @@
 """Unit tests for user endpoints."""
 
+from datetime import datetime
 from unittest.mock import MagicMock, patch
+
+import pytest
 from fastapi import FastAPI, Request
 from starlette.testclient import TestClient
 
 from app.api.v1.routes.user import router
-from app.models.user import User, UserEnrolledMission
 from app.dependencies.auth import get_current_user
 from app.initializers.firestore import get_db
-from datetime import datetime
-import pytest
+from app.models.user import User, UserEnrolledMission
 
 
 @pytest.fixture
@@ -32,6 +33,7 @@ def test_user():
 
 def test_get_profile_success_returns_200(test_app, test_user):
     """Should return 200 with user profile data."""
+
     @test_app.middleware("http")
     async def mock_user(request: Request, call_next):
         request.state.current_user = test_user
@@ -47,6 +49,7 @@ def test_get_profile_success_returns_200(test_app, test_user):
 
 def test_get_profile_returns_user_id(test_app, test_user):
     """Should return user ID in response."""
+
     @test_app.middleware("http")
     async def mock_user(request: Request, call_next):
         request.state.current_user = test_user
@@ -62,6 +65,7 @@ def test_get_profile_returns_user_id(test_app, test_user):
 
 def test_get_profile_returns_user_email(test_app, test_user):
     """Should return user email in response."""
+
     @test_app.middleware("http")
     async def mock_user(request: Request, call_next):
         request.state.current_user = test_user
@@ -77,6 +81,7 @@ def test_get_profile_returns_user_email(test_app, test_user):
 
 def test_get_profile_returns_user_name(test_app, test_user):
     """Should return user name in response."""
+
     @test_app.middleware("http")
     async def mock_user(request: Request, call_next):
         request.state.current_user = test_user
@@ -92,6 +97,7 @@ def test_get_profile_returns_user_name(test_app, test_user):
 
 def test_get_profile_includes_picture_field(test_app, test_user):
     """Should include picture field in response."""
+
     @test_app.middleware("http")
     async def mock_user(request: Request, call_next):
         request.state.current_user = test_user
@@ -161,4 +167,6 @@ def test_get_enrolled_missions_respects_limit(test_app, test_user):
         mock_service.return_value.get_enrolled_missions.return_value = []
         client = TestClient(test_app)
         client.get("/user/enrolled-missions?limit=50")
-        mock_service.return_value.get_enrolled_missions.assert_called_once_with(test_user.id, limit=50)
+        mock_service.return_value.get_enrolled_missions.assert_called_once_with(
+            test_user.id, limit=50
+        )

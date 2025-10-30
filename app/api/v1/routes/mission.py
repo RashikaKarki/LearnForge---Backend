@@ -32,14 +32,14 @@ async def create_mission_with_enrollment(
         500: If mission or enrollment creation fails
     """
     mission_service = MissionService(db)
-    
+
     # Override creator_id with authenticated user's ID
     mission_data.creator_id = current_user.id
-    
+
     mission, enrollment = mission_service.create_mission_with_enrollment(
         mission_data, current_user.id
     )
-    
+
     return {
         "mission": mission,
         "enrollment": enrollment,
