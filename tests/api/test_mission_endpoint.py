@@ -220,19 +220,6 @@ def test_create_mission_with_enrollment_service_error(test_user, valid_mission_c
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 
 
-def test_create_mission_with_enrollment_requires_authentication(valid_mission_create_data):
-    """Test creating mission requires authentication."""
-    # Only test /missions/enrollment
-
-
-def test_create_mission_with_enrollment_validation_error():
-    """Test invalid mission data returns 422."""
-    # Only test /missions/enrollment
-
-
-def test_create_mission_with_enrollment_service_error(test_user, valid_mission_create_data):
-    """Test service error returns 500."""
-    # Only test /missions/enrollment
 
 
 # Tests for GET /missions/{mission_id}
