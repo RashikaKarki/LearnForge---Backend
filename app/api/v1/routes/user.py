@@ -10,39 +10,38 @@ router = APIRouter()
 
 @router.get("/profile", response_model=User)
 async def get_profile(
-    user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db=Depends(get_db),
-    include_enrollments: bool = False,
     limit: int = 100,
 ):
     """Get current user profile.
 
     Args:
-        include_enrollments: If True, includes enrolled missions (2 queries).
-                            If False, returns basic user info only (1 query, faster).
         limit: Maximum number of enrolled missions to return (only if include_enrollments=True)
     """
-    if include_enrollments:
-        # Get user with enrolled missions (2 queries)
-        user_service = UserService(db)
-        basic_user = user_service.get_user(user.id)
-        enrolled_missions = user_service.get_enrolled_missions(user.id, limit=limit)
+    # Get user with enrolled missions (2 queries)
+    user_service = UserService(db)
+    basic_user = user_service.get_user(current_user.id)
 
-        # Combine user data with enrolled missions
-        user_dict = basic_user.model_dump()
-        user_dict["enrolled_missions"] = enrolled_missions
-        return User(**user_dict)
-    else:
-        # Return basic user info (no additional query needed)
-        return user
+    # Combine user data with enrolled missions
+    user_dict = basic_user.model_dump()
+    return User(**user_dict)
 
 
 @router.get("/enrolled-missions", response_model=list[UserEnrolledMission])
-async def get_enrolled_missions(
-    user: User = Depends(get_current_user),
+async def get_user_enrolled_missions(
     db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
     limit: int = 100,
 ):
-    """Get all enrolled missions for the current user."""
+    """
+    Get all enrolled missions for the current user.
+
+    Args:
+        limit: Maximum number of enrolled missions to return
+
+    Returns:
+        List of UserEnrolledMission objects with mission details and progress
+    """
     user_service = UserService(db)
-    return user_service.get_enrolled_missions(user.id, limit=limit)
+    return user_service.get_enrolled_missions(current_user.id, limit=limit)

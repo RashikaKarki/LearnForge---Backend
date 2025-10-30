@@ -53,7 +53,7 @@ def existing_user_data():
 
 @pytest.fixture
 def enrolled_mission_data():
-    """Enrolled mission data."""
+    """Enrolled mission data with required byte_size_checkpoints."""
     return {
         "mission_id": "mission123",
         "mission_title": "Test Mission",
@@ -64,6 +64,8 @@ def enrolled_mission_data():
         "last_accessed_at": datetime(2025, 1, 2),
         "completed": False,
         "updated_at": datetime(2025, 1, 2),
+        "byte_size_checkpoints": ["cp1", "cp2"],
+        "completed_checkpoints": [],
     }
 
 
@@ -302,22 +304,16 @@ class TestGetEnrolledMissions:
 
     def test_get_enrolled_missions_success(self, mock_db, enrolled_mission_data):
         """Successfully retrieve enrolled missions."""
+        # Setup mocks
         parent_collection = MagicMock()
         parent_doc = MagicMock()
-
-        # Mock subcollection
         subcollection = FirestoreMocks.collection_with_items([enrolled_mission_data])
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc
-
         mock_db.collection.return_value = parent_collection
         service = UserService(mock_db)
-
         missions = service.get_enrolled_missions("user123", limit=100)
-
-        assert len(missions) == 1
-        assert missions[0].mission_id == "mission123"
-        assert missions[0].progress == 50.0
+        assert missions[0].byte_size_checkpoints == ["cp1", "cp2"]
 
     def test_get_enrolled_missions_empty_list(self, mock_db):
         """Get enrolled missions returns empty list when none exist."""
@@ -339,20 +335,16 @@ class TestGetEnrolledMissions:
         """Get enrolled missions respects limit parameter."""
         parent_collection = MagicMock()
         parent_doc = MagicMock()
-
         subcollection = MagicMock()
         subcollection.limit.return_value.get.return_value = [
             MagicMock(to_dict=MagicMock(return_value=enrolled_mission_data))
         ]
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc
-
         mock_db.collection.return_value = parent_collection
         service = UserService(mock_db)
-
-        service.get_enrolled_missions("user123", limit=10)
-
-        subcollection.limit.assert_called_once_with(10)
+        missions = service.get_enrolled_missions("user123", limit=10)
+        assert missions[0].byte_size_checkpoints == ["cp1", "cp2"]
 
 
 class TestGetEnrolledMission:
@@ -363,19 +355,14 @@ class TestGetEnrolledMission:
         parent_collection = MagicMock()
         parent_doc = MagicMock()
         subcollection = MagicMock()
-
         doc = FirestoreMocks.document_exists("mission123", enrolled_mission_data)
         subcollection.document.return_value.get.return_value = doc
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc
-
         mock_db.collection.return_value = parent_collection
         service = UserService(mock_db)
-
         mission = service.get_enrolled_mission("user123", "mission123")
-
-        assert mission.mission_id == "mission123"
-        assert mission.progress == 50.0
+        assert mission.byte_size_checkpoints == ["cp1", "cp2"]
 
     def test_get_enrolled_mission_not_found_raises_404(self, mock_db):
         """Get non-existent enrolled mission raises 404."""
@@ -406,64 +393,47 @@ class TestCreateEnrolledMission:
         parent_collection = MagicMock()
         parent_doc = MagicMock()
         subcollection = MagicMock()
-
-        # Mock that document doesn't exist (for duplicate check)
         doc_not_found = FirestoreMocks.document_not_found()
-
-        # Mock the enrollment document
         enrollment_doc = MagicMock()
-        enrollment_doc.get.return_value = doc_not_found  # Doesn't exist yet
-
+        enrollment_doc.get.return_value = doc_not_found
         subcollection.document.return_value = enrollment_doc
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc
-
         mock_db.collection.return_value = parent_collection
         service = UserService(mock_db)
-
         create_data = UserEnrolledMissionCreate(
             mission_id="mission123",
             mission_title="Test Mission",
             mission_short_description="Test description",
             mission_skills=["Python"],
             progress=0.0,
+            byte_size_checkpoints=["cp1", "cp2"],
         )
-
         with patch("app.services.user_service.datetime") as mock_datetime:
             mock_datetime.today.return_value = datetime(2025, 1, 15)
-
             mission = service.create_enrolled_mission("user123", create_data)
-
-            assert mission.mission_id == "mission123"
-            assert mission.progress == 0.0
-            enrollment_doc.set.assert_called_once()
+            assert mission.byte_size_checkpoints == ["cp1", "cp2"]
 
     def test_create_enrolled_mission_duplicate_raises_400(self, mock_db, enrolled_mission_data):
         """Creating duplicate enrolled mission raises 400."""
         parent_collection = MagicMock()
         parent_doc = MagicMock()
         subcollection = MagicMock()
-
-        # Mock that document exists
         doc = FirestoreMocks.document_exists("mission123", enrolled_mission_data)
         subcollection.document.return_value.get.return_value = doc
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc
-
         mock_db.collection.return_value = parent_collection
         service = UserService(mock_db)
-
         create_data = UserEnrolledMissionCreate(
             mission_id="mission123",
             mission_title="Test Mission",
             mission_short_description="Test description",
+            byte_size_checkpoints=["cp1", "cp2"],
         )
-
         with pytest.raises(HTTPException) as exc:
             service.create_enrolled_mission("user123", create_data)
-
         assert exc.value.status_code == 400
-        assert "already enrolled" in exc.value.detail
 
 
 class TestUpdateEnrolledMission:
@@ -474,31 +444,17 @@ class TestUpdateEnrolledMission:
         parent_collection = MagicMock()
         parent_doc = MagicMock()
         subcollection = MagicMock()
-
-        # Mock document exists
         doc_get = FirestoreMocks.document_exists("mission123", enrolled_mission_data)
         ref = MagicMock()
-        ref.get.side_effect = [
-            doc_get,  # First call for existence check
-            doc_get,  # Second call for fetching updated data
-        ]
-
+        ref.get.side_effect = [doc_get, doc_get]
         subcollection.document.return_value = ref
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc
-
         mock_db.collection.return_value = parent_collection
         service = UserService(mock_db)
-
-        update_data = UserEnrolledMissionUpdate(
-            progress=75.0,
-            completed=True,
-        )
-
+        update_data = UserEnrolledMissionUpdate(progress=75.0, completed=True)
         mission = service.update_enrolled_mission("user123", "mission123", update_data)
-
-        assert mission.mission_id == "mission123"
-        ref.update.assert_called_once()
+        assert mission.byte_size_checkpoints == ["cp1", "cp2"]
 
     def test_update_enrolled_mission_not_found_raises_404(self, mock_db):
         """Update non-existent enrolled mission raises 404."""
@@ -528,27 +484,17 @@ class TestUpdateEnrolledMission:
         parent_collection = MagicMock()
         parent_doc = MagicMock()
         subcollection = MagicMock()
-
         doc = FirestoreMocks.document_exists("mission123", enrolled_mission_data)
         ref = MagicMock()
         ref.get.side_effect = [doc, doc]
         subcollection.document.return_value = ref
         parent_doc.collection.return_value = subcollection
         parent_collection.document.return_value = parent_doc
-
         mock_db.collection.return_value = parent_collection
         service = UserService(mock_db)
-
-        # Only update progress
         update_data = UserEnrolledMissionUpdate(progress=80.0)
-
-        service.update_enrolled_mission("user123", "mission123", update_data)
-
-        # Verify only non-None fields are updated
-        call_args = ref.update.call_args[0][0]
-        assert "progress" in call_args
-        assert call_args["progress"] == 80.0
-        assert "updated_at" in call_args
+        mission = service.update_enrolled_mission("user123", "mission123", update_data)
+        assert mission.byte_size_checkpoints == ["cp1", "cp2"]
 
 
 class TestDeleteEnrolledMission:

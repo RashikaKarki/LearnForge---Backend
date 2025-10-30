@@ -8,19 +8,22 @@ from pydantic import ValidationError
 from app.models.enrollment import Enrollment, EnrollmentCreate, EnrollmentUpdate
 
 
-def test_enrollment_model_valid_creation():
-    """Should create enrollment with all required fields."""
-    enrollment = Enrollment(
+@pytest.fixture
+def valid_enrollment():
+    return Enrollment(
         id="user123_mission123",
         user_id="user123",
         mission_id="mission123",
         progress=50.0,
     )
 
-    assert enrollment.id == "user123_mission123"
-    assert enrollment.user_id == "user123"
-    assert enrollment.mission_id == "mission123"
-    assert enrollment.progress == 50.0
+
+def test_enrollment_model_valid_creation(valid_enrollment):
+    """Should create enrollment with all required fields."""
+    assert valid_enrollment.id == "user123_mission123"
+    assert valid_enrollment.user_id == "user123"
+    assert valid_enrollment.mission_id == "mission123"
+    assert valid_enrollment.progress == 50.0
 
 
 def test_enrollment_model_progress_defaults_to_zero():

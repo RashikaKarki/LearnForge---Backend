@@ -77,6 +77,7 @@ def existing_mission_data():
         "title": "Test Mission",
         "short_description": "Test description",
         "skills": ["Python", "FastAPI"],
+        "byte_size_checkpoints": ["checkpoint1", "checkpoint2", "checkpoint3"],
         "creator_id": "creator123",
         "is_public": True,
         "created_at": datetime(2025, 1, 1),
@@ -143,6 +144,14 @@ class TestCreateEnrollment:
             mock_user_service.create_enrolled_mission.assert_called_once()
             call_args = mock_user_service.create_enrolled_mission.call_args
             assert call_args[1]["user_id"] == "user123"
+            # Verify byte_size_checkpoints and completed_checkpoints are passed
+            user_enrolled_data = call_args[1]["data"]
+            assert user_enrolled_data.byte_size_checkpoints == [
+                "checkpoint1",
+                "checkpoint2",
+                "checkpoint3",
+            ]
+            assert user_enrolled_data.completed_checkpoints == []
 
     def test_create_enrollment_user_not_found_raises_404(
         self, mock_db, mock_user_service, valid_enrollment_create
@@ -355,6 +364,38 @@ class TestUpdateEnrollment:
         call_args = mock_user_service.update_enrolled_mission.call_args
         update_obj = call_args[1]["data"]
         assert update_obj.progress == 75.0
+
+    def test_update_enrollment_with_completed_checkpoints(
+        self, mock_db, mock_user_service, existing_enrollment_data
+    ):
+        """Update enrollment with completed_checkpoints propagates to user service."""
+        enrollments_collection = MagicMock()
+        doc_ref = MagicMock()
+        existing_doc = FirestoreMocks.document_exists(
+            "user123_mission456", existing_enrollment_data
+        )
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+        enrollments_collection.document.return_value = doc_ref
+
+        mock_db.collection.return_value = enrollments_collection
+        service = EnrollmentService(mock_db, mock_user_service)
+
+        # Update progress and completed checkpoints
+        update_data = EnrollmentUpdate(
+            progress=50.0,
+            completed_checkpoints=["checkpoint1", "checkpoint2"],
+            completed=False,
+        )
+
+        service.update_enrollment("user123", "mission456", update_data)
+
+        # Verify user service was called with correct data including completed_checkpoints
+        mock_user_service.update_enrolled_mission.assert_called_once()
+        call_args = mock_user_service.update_enrolled_mission.call_args
+        update_obj = call_args[1]["data"]
+        assert update_obj.progress == 50.0
+        assert update_obj.completed_checkpoints == ["checkpoint1", "checkpoint2"]
+        assert update_obj.completed is False
 
 
 # ============================================================================

@@ -20,6 +20,10 @@ class UserEnrolledMission(BaseModel):
     progress: float = Field(
         default=0.0, ge=0.0, le=100.0, description="Progress percentage (0-100)"
     )
+    byte_size_checkpoints: list[str] = Field(..., description="List of checkpoint names in order")
+    completed_checkpoints: list[str] = Field(
+        default_factory=list, description="List of completed checkpoint names"
+    )
     enrolled_at: datetime = Field(default_factory=datetime.today)
     last_accessed_at: datetime = Field(default_factory=datetime.today)
     completed: bool = Field(default=False, description="Whether the mission is completed")
@@ -35,6 +39,10 @@ class UserEnrolledMissionCreate(BaseModel):
     enrolled_at: datetime = Field(default_factory=datetime.today)
     last_accessed_at: datetime = Field(default_factory=datetime.today)
     completed: bool = False
+    byte_size_checkpoints: list[str] = Field(..., description="List of checkpoint names in order")
+    completed_checkpoints: list[str] = Field(
+        default_factory=list, description="List of completed checkpoint names"
+    )
 
 
 class UserEnrolledMissionUpdate(BaseModel):
@@ -47,6 +55,7 @@ class UserEnrolledMissionUpdate(BaseModel):
 
     # Progress tracking fields
     progress: float | None = Field(None, ge=0.0, le=100.0)
+    completed_checkpoints: list[str] | None = None
     last_accessed_at: datetime | None = None
     completed: bool | None = None
 

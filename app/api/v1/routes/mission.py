@@ -4,11 +4,45 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.dependencies.auth import get_current_user
 from app.initializers.firestore import get_db
-from app.models.mission import Mission, MissionUpdate
+from app.models.mission import Mission, MissionCreate, MissionUpdate
 from app.models.user import User
 from app.services.mission_service import MissionService
 
 router = APIRouter()
+
+
+@router.post("/enrollment", status_code=status.HTTP_201_CREATED)
+async def create_mission_with_enrollment(
+    mission_data: MissionCreate,
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Create a new mission and automatically enroll the creator.
+
+    Args:
+        mission_data: Mission creation data
+        current_user: Authenticated user (auto-enrolled as creator)
+
+    Returns:
+        Dictionary with mission and enrollment objects
+
+    Raises:
+        500: If mission or enrollment creation fails
+    """
+    mission_service = MissionService(db)
+
+    # Override creator_id with authenticated user's ID
+    mission_data.creator_id = current_user.id
+
+    mission, enrollment = mission_service.create_mission_with_enrollment(
+        mission_data, current_user.id
+    )
+
+    return {
+        "mission": mission,
+        "enrollment": enrollment,
+    }
 
 
 @router.get("/{mission_id}", response_model=Mission)

@@ -25,5 +25,6 @@ class EnrollmentCreate(BaseModel):
 
 class EnrollmentUpdate(BaseModel):
     progress: float | None = Field(None, ge=0.0, le=100.0)
+    completed_checkpoints: list[str] | None = None
     last_accessed_at: datetime | None = None
     completed: bool | None = None
