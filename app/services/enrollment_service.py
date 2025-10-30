@@ -77,6 +77,8 @@ class EnrollmentService:
             mission_short_description=mission_data.get("short_description", ""),
             mission_skills=mission_data.get("skills", []),
             progress=data.progress,
+            byte_size_checkpoints=mission_data.get("byte_size_checkpoints", []),
+            completed_checkpoints=[],
             enrolled_at=enrollment_data["enrolled_at"],
             last_accessed_at=enrollment_data["last_accessed_at"],
             completed=False,
@@ -158,6 +160,7 @@ class EnrollmentService:
             user_enrolled_update = UserEnrolledMissionUpdate(
                 progress=data.progress,
                 completed=data.completed,
+                completed_checkpoints=data.completed_checkpoints,
                 last_accessed_at=update_data["last_accessed_at"],
             )
 
