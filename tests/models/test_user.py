@@ -130,6 +130,7 @@ class TestUser:
             email="test@example.com",
             picture="https://example.com/pic.jpg",
             enrolled_missions=[],
+            learning_style=["examples", "step-by-step"],
             created_at=datetime(2025, 1, 1),
             updated_at=datetime(2025, 1, 1),
         )
@@ -139,6 +140,7 @@ class TestUser:
         assert user.name == "Test User"
         assert user.email == "test@example.com"
         assert user.enrolled_missions == []
+        assert user.learning_style == ["examples", "step-by-step"]
 
     def test_create_with_defaults(self):
         """User uses default values."""
@@ -151,6 +153,7 @@ class TestUser:
 
         assert user.picture is None
         assert user.enrolled_missions == []
+        assert user.learning_style == []
         assert isinstance(user.created_at, datetime)
         assert isinstance(user.updated_at, datetime)
 
@@ -172,6 +175,31 @@ class TestUser:
 
         assert len(user.enrolled_missions) == 1
         assert user.enrolled_missions[0].mission_id == "m1"
+
+    def test_learning_style_defaults_to_empty_list(self):
+        """Should default learning_style to empty list when not provided."""
+        user = User(
+            id="user123",
+            firebase_uid="firebase123",
+            name="Test User",
+            email="test@example.com",
+        )
+
+        assert user.learning_style == []
+
+    def test_create_with_learning_style(self):
+        """User can have learning style preferences."""
+        user = User(
+            id="user123",
+            firebase_uid="firebase123",
+            name="Test User",
+            email="test@example.com",
+            learning_style=["examples", "metaphors", "analogies", "step-by-step"],
+        )
+
+        assert len(user.learning_style) == 4
+        assert "examples" in user.learning_style
+        assert "step-by-step" in user.learning_style
 
     @pytest.mark.parametrize(
         "email",
@@ -231,6 +259,7 @@ class TestUserUpdate:
         assert update_data.name is None
         assert update_data.email is None
         assert update_data.picture is None
+        assert update_data.learning_style is None
 
     def test_partial_update_name_only(self):
         """Can update name only."""
@@ -238,3 +267,34 @@ class TestUserUpdate:
 
         assert update_data.name == "New Name"
         assert update_data.email is None
+        assert update_data.learning_style is None
+
+    def test_update_learning_style(self):
+        """Can update learning_style."""
+        update_data = UserUpdate(learning_style=["examples", "metaphors", "analogies"])
+
+        assert update_data.learning_style == ["examples", "metaphors", "analogies"]
+        assert update_data.name is None
+        assert update_data.email is None
+
+    def test_update_learning_style_to_empty_list(self):
+        """Can update learning_style to empty list."""
+        update_data = UserUpdate(learning_style=[])
+
+        assert update_data.learning_style == []
+        assert update_data.name is None
+        assert update_data.email is None
+
+    def test_update_all_fields_including_learning_style(self):
+        """Can update all fields including learning_style."""
+        update_data = UserUpdate(
+            name="Updated Name",
+            email="updated@example.com",
+            picture="https://example.com/new-pic.jpg",
+            learning_style=["step-by-step", "examples"],
+        )
+
+        assert update_data.name == "Updated Name"
+        assert update_data.email == "updated@example.com"
+        assert str(update_data.picture) == "https://example.com/new-pic.jpg"
+        assert update_data.learning_style == ["step-by-step", "examples"]
