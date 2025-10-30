@@ -61,6 +61,10 @@ class User(BaseModel):
         default_factory=list,
         description="List of missions the user is enrolled in (denormalized, optional)",
     )
+    learning_style: list[str] = Field(
+        default_factory=list,
+        description="User's preferred learning styles (e.g., examples, metaphors, analogies, step-by-step)",
+    )
     created_at: datetime = Field(default_factory=datetime.today)
     updated_at: datetime = Field(default_factory=datetime.today)
 
@@ -76,3 +80,4 @@ class UserUpdate(BaseModel):
     name: str | None = None
     email: EmailStr | None = None
     picture: AnyUrl | None = None
+    learning_style: list[str] | None = None

@@ -19,7 +19,6 @@ def test_mission_model_valid_creation():
         level="Beginner",
         topics_to_cover=["Variables", "Functions", "Data Types"],
         learning_goal="Master Python fundamentals for data science",
-        learning_style=["examples", "step-by-step"],
         byte_size_checkpoints=["Intro to Python", "Variables and Data Types", "Functions"],
         is_public=True,
         skills=["Python", "Programming"],
@@ -33,7 +32,6 @@ def test_mission_model_valid_creation():
     assert mission.level == "Beginner"
     assert mission.topics_to_cover == ["Variables", "Functions", "Data Types"]
     assert mission.learning_goal == "Master Python fundamentals for data science"
-    assert mission.learning_style == ["examples", "step-by-step"]
     assert mission.byte_size_checkpoints == [
         "Intro to Python",
         "Variables and Data Types",
@@ -58,23 +56,6 @@ def test_mission_model_skills_defaults_to_empty_list():
     )
 
     assert mission.skills == []
-
-
-def test_mission_model_learning_style_defaults_to_empty_list():
-    """Should default learning_style to empty list when not provided."""
-    mission = Mission(
-        id="mission123",
-        title="Learn Python",
-        short_description="An introductory course on Python",
-        description="Python guide",
-        creator_id="user123",
-        level="Beginner",
-        topics_to_cover=["Python Basics"],
-        learning_goal="Learn Python programming",
-        byte_size_checkpoints=["Introduction", "Variables", "Functions", "Conclusion"],
-    )
-
-    assert mission.learning_style == []
 
 
 def test_mission_model_is_public_defaults_to_true():
@@ -250,7 +231,6 @@ def test_mission_create_valid():
         level="Beginner",
         topics_to_cover=["Variables", "Functions"],
         learning_goal="Master Python fundamentals",
-        learning_style=["examples", "metaphors", "step-by-step"],
         byte_size_checkpoints=["Introduction", "Variables", "Functions", "Conclusion"],
         skills=["Python", "Programming"],
     )
@@ -262,7 +242,6 @@ def test_mission_create_valid():
     assert mission_create.level == "Beginner"
     assert mission_create.topics_to_cover == ["Variables", "Functions"]
     assert mission_create.learning_goal == "Master Python fundamentals"
-    assert mission_create.learning_style == ["examples", "metaphors", "step-by-step"]
     assert mission_create.byte_size_checkpoints == [
         "Introduction",
         "Variables",
@@ -405,7 +384,6 @@ def test_mission_update_all_fields_optional():
     assert mission_update.title is None
     assert mission_update.description is None
     assert mission_update.is_public is None
-    assert mission_update.learning_style is None
 
 
 def test_mission_update_partial_fields():
@@ -415,7 +393,6 @@ def test_mission_update_partial_fields():
     assert mission_update.title == "Updated Title"
     assert mission_update.description is None
     assert mission_update.is_public is None
-    assert mission_update.learning_style is None
 
 
 def test_mission_update_all_fields():
@@ -423,14 +400,18 @@ def test_mission_update_all_fields():
     mission_update = MissionUpdate(
         title="Updated Title",
         description="Updated Description",
+        short_description="Updated Short Description",
         is_public=False,
-        learning_style=["analogies", "step-by-step"],
+        level="Advanced",
+        skills=["Python", "Advanced Programming"],
     )
 
     assert mission_update.title == "Updated Title"
     assert mission_update.description == "Updated Description"
+    assert mission_update.short_description == "Updated Short Description"
     assert mission_update.is_public is False
-    assert mission_update.learning_style == ["analogies", "step-by-step"]
+    assert mission_update.level == "Advanced"
+    assert mission_update.skills == ["Python", "Advanced Programming"]
 
 
 @pytest.mark.parametrize(

@@ -45,6 +45,7 @@ def existing_user_data():
         "email": "existing@example.com",
         "picture": "https://example.com/existing.jpg",
         "enrolled_missions": [],
+        "learning_style": ["examples", "step-by-step"],
         "created_at": datetime(2025, 1, 1, 12, 0, 0),
         "updated_at": datetime(2025, 1, 1, 12, 0, 0),
     }
@@ -126,6 +127,22 @@ class TestCreateUser:
         assert user.picture is None
         assert user.email == "test@example.com"
 
+    def test_create_user_learning_style_defaults_to_empty_list(self, mock_db):
+        """Create user has empty learning_style by default."""
+        collection = FirestoreMocks.collection_empty()
+        mock_db.collection.return_value = collection
+        service = UserService(mock_db)
+
+        user_data = UserCreate(
+            firebase_uid="uid123",
+            name="Test User",
+            email="test@example.com",
+        )
+
+        user = service.create_user(user_data)
+
+        assert user.learning_style == []
+
 
 class TestGetUser:
     """Test retrieving users."""
@@ -142,6 +159,7 @@ class TestGetUser:
 
         assert user.id == "user123"
         assert user.email == existing_user_data["email"]
+        assert user.learning_style == ["examples", "step-by-step"]
         collection.document.assert_called_once_with("user123")
 
     def test_get_user_not_found_raises_404(self, mock_db):
@@ -218,6 +236,60 @@ class TestGetOrCreateUser:
 
         assert user.email == "new@example.com"
         assert user.id == "auto_generated_id"
+
+
+# ============================================================================
+# USER UPDATE TESTS
+# ============================================================================
+
+
+class TestUpdateUser:
+    """Test updating user profile including learning_style."""
+
+    def test_update_user_learning_style_success(self, mock_db, existing_user_data):
+        """Successfully update user's learning_style."""
+        from app.models.user import UserUpdate
+
+        collection = MagicMock()
+        doc_ref = MagicMock()
+
+        # Mock existing user
+        existing_doc = FirestoreMocks.document_exists("user123", existing_user_data)
+        doc_ref.get.side_effect = [existing_doc, existing_doc]
+
+        collection.document.return_value = doc_ref
+        mock_db.collection.return_value = collection
+
+        # Note: UserService doesn't have update_user method yet, but testing the pattern
+        # This test demonstrates how learning_style should be handled in updates
+        user_update = UserUpdate(learning_style=["metaphors", "analogies", "examples"])
+
+        assert user_update.learning_style == ["metaphors", "analogies", "examples"]
+        assert user_update.name is None
+        assert user_update.email is None
+
+    def test_update_user_learning_style_to_empty_list(self):
+        """Can update learning_style to empty list."""
+        from app.models.user import UserUpdate
+
+        user_update = UserUpdate(learning_style=[])
+
+        assert user_update.learning_style == []
+        assert user_update.name is None
+
+    def test_update_user_partial_with_learning_style(self):
+        """Can partially update user with learning_style."""
+        from app.models.user import UserUpdate
+
+        user_update = UserUpdate(
+            name="Updated Name",
+            learning_style=["step-by-step"],
+        )
+
+        assert user_update.name == "Updated Name"
+        assert user_update.learning_style == ["step-by-step"]
+        assert user_update.email is None
+        assert user_update.picture is None
 
 
 # ============================================================================
