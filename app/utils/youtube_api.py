@@ -95,7 +95,7 @@ def search_youtube_videos(
 
         # Parse and format video information
         videos = []
-        for idx, video_item in enumerate(videos_data["items"]):
+        for video_item in videos_data["items"]:
             snippet = video_item.get("snippet", {})
             content_details = video_item.get("contentDetails", {})
             statistics = video_item.get("statistics", {})
