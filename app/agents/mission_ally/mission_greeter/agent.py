@@ -1,5 +1,5 @@
 from google.adk.agents import LlmAgent
-from google.adk.tools import ToolContext, FunctionTool
+from google.adk.tools import FunctionTool, ToolContext
 
 
 def transfer_to_orchestrator(tool_context: ToolContext):
@@ -12,6 +12,7 @@ def transfer_to_orchestrator(tool_context: ToolContext):
     tool_context.actions.transfer_to_agent = orchestrator_agent.name
 
     return "Transferred to Orchestrator to continue the learning journey."
+
 
 transfer_to_orchestrator_tool = FunctionTool(func=transfer_to_orchestrator)
 

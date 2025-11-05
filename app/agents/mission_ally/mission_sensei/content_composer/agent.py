@@ -1,8 +1,8 @@
 from google.adk.agents import SequentialAgent
 
+from ..content_formatter.agent import root_agent as content_formatter
 from ..content_searcher.agent import root_agent as content_searcher
 from ..video_selector.agent import root_agent as video_selector
-from ..content_formatter.agent import root_agent as content_formatter
 
 root_agent = SequentialAgent(
     name="ContentComposer",

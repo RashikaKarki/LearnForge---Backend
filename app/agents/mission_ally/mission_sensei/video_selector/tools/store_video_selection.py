@@ -12,7 +12,7 @@ def store_video_selection(
 ) -> str:
     """
     Store the video selection result for use by the next agent in the workflow.
-    
+
     Args:
         video_selected: Whether a video was selected
         video_title: Title of the selected video (if any)
@@ -22,13 +22,14 @@ def store_video_selection(
         why_recommended: Why this video is valuable (if any)
     """
     tool_context.state["video_selection_result"] = {
-            "video_selected": video_selected,
-            "video_title": video_title,
-            "video_url": video_url,
-            "channel_name": channel_name,
-            "duration_minutes": duration_minutes,
-            "why_recommended": why_recommended,
-        }
+        "video_selected": video_selected,
+        "video_title": video_title,
+        "video_url": video_url,
+        "channel_name": channel_name,
+        "duration_minutes": duration_minutes,
+        "why_recommended": why_recommended,
+    }
     return "Video selection stored successfully. Task complete."
+
 
 store_video_selection_tool = FunctionTool(func=store_video_selection)

@@ -1,7 +1,8 @@
 from google.adk.agents import LlmAgent
-from google.adk.tools import agent_tool, ToolContext, FunctionTool
+from google.adk.tools import FunctionTool, ToolContext, agent_tool
 
 from app.agents.search_agent.agent import search_agent
+
 
 def store_content_search_result(
     main_explanation: str,
@@ -13,7 +14,7 @@ def store_content_search_result(
 ) -> str:
     """
     Store the content search result for use by the next agent in the workflow.
-    
+
     Args:
         main_explanation: 2-3 paragraphs explaining the concept clearly
         examples: List of 2-3 concrete examples
@@ -22,13 +23,14 @@ def store_content_search_result(
         concept_name: The concept this content explains
     """
     tool_context.state["content_search_result"] = {
-            "main_explanation": main_explanation,
-            "examples": examples,
-            "key_points": key_points,
-            "sources": sources,
-            "concept_name": concept_name,
-        }
+        "main_explanation": main_explanation,
+        "examples": examples,
+        "key_points": key_points,
+        "sources": sources,
+        "concept_name": concept_name,
+    }
     return "Content search result stored successfully. Task complete."
+
 
 store_content_search_result_tool = FunctionTool(func=store_content_search_result)
 

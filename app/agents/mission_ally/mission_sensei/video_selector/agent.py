@@ -3,7 +3,6 @@ from google.adk.agents import LlmAgent
 from .tools.fetch_youtube_videos import fetch_youtube_videos_tool
 from .tools.store_video_selection import store_video_selection_tool
 
-
 root_agent = LlmAgent(
     model="gemini-2.5-flash",
     name="VideoSelector",
