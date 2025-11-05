@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     # Google API Key - loaded from Secret Manager in production (as file)
     GOOGLE_API_KEY: str = _read_secret("GOOGLE_API_KEY", "")
 
+    YOUTUBE_API_KEY: str = _read_secret("YOUTUBE_API_KEY", "")
+
     # Paths
     AGENTS_DIR: str = "agents"
 

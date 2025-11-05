@@ -53,7 +53,7 @@ jobs:
             --timeout 300 \
             --port 8080 \
             --set-env-vars "GOOGLE_GENAI_USE_VERTEXAI=FALSE" \
-            --update-secrets "GOOGLE_APPLICATION_CREDENTIALS=firebase-service-account-key:latest,GOOGLE_API_KEY=google-api-key:latest,ALLOW_ORIGINS=allow-origins:latest,FIRESTORE_DATABASE_ID=firestore-database-id:latest"
+            --update-secrets "GOOGLE_APPLICATION_CREDENTIALS=firebase-service-account-key:latest,GOOGLE_API_KEY=GOOGLE_API_KEY:latest,ALLOW_ORIGINS=ALLOW_ORIGINS:latest,FIRESTORE_DATABASE_ID=firestore-database-id:latest,YOUTUBE_API_KEY=YOUTUBE_API_KEY:latest"
 
       - name: Show deployment URL
         run: |

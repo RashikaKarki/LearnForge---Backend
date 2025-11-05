@@ -7,14 +7,12 @@ from .pathfinder.agent import root_agent as pathfinder_agent
 
 def start_session_with_pathfinder(tool_context: ToolContext) -> str:
     """Automatically transfers to Pathfinder at the start of a new session."""
-    print("Orchestrator: New session detected. Transferring to Pathfinder...")
     tool_context.actions.transfer_to_agent = pathfinder_agent.name
     return "Transferred to Pathfinder to begin learning journey."
 
 
 def transfer_to_mission_curator(tool_context: ToolContext) -> str:
     """Transfers to Mission Curator (which handles both Curator and Weaver sequentially)."""
-    print("Orchestrator: Transferring to Mission Curator...")
     tool_context.actions.transfer_to_agent = mission_curator_agent.name
     return "Transferred to Mission Curator for roadmap creation and content generation."
 
