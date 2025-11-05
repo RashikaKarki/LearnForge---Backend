@@ -103,10 +103,25 @@ def test_create_mission_with_enrollment_success(
     app.dependency_overrides[get_db] = lambda: MagicMock()
     app.dependency_overrides[get_current_user] = lambda: test_user
 
+    from app.models.enrollment_session_log import EnrollmentSessionLog
+
+    test_enrollment_session_log = EnrollmentSessionLog(
+        id="session123",
+        enrollment_id="user123_mission123",
+        user_id="user123",
+        mission_id="mission123",
+        status="created",
+        created_at=datetime(2025, 1, 1, 12, 0, 0),
+        updated_at=datetime(2025, 1, 1, 12, 0, 0),
+        started_at=None,
+        completed_at=None,
+    )
+
     with patch("app.api.v1.routes.mission.MissionService") as mock_service:
         mock_service.return_value.create_mission_with_enrollment.return_value = (
             test_mission,
             test_enrollment,
+            test_enrollment_session_log,
         )
 
         client = TestClient(app)
@@ -115,8 +130,10 @@ def test_create_mission_with_enrollment_success(
         assert response.status_code == status.HTTP_201_CREATED
         assert "mission" in response.json()
         assert "enrollment" in response.json()
+        assert "enrollment_session_log" in response.json()
         assert response.json()["mission"]["id"] == test_mission.id
         assert response.json()["enrollment"]["id"] == test_enrollment.id
+        assert response.json()["enrollment_session_log"]["id"] == test_enrollment_session_log.id
 
 
 def test_create_mission_with_enrollment_uses_authenticated_user(
@@ -162,10 +179,23 @@ def test_create_mission_with_enrollment_uses_authenticated_user(
         created_at=datetime(2025, 1, 1, 12, 0, 0),
         updated_at=datetime(2025, 1, 1, 12, 0, 0),
     )
+    from app.models.session_log import SessionLog
+
+    test_session_log = SessionLog(
+        id="session123",
+        user_id="user123",
+        mission_id="mission123",
+        status="active",
+        created_at=datetime(2025, 1, 1, 12, 0, 0),
+        updated_at=datetime(2025, 1, 1, 12, 0, 0),
+        completed_at=None,
+    )
+
     with patch("app.api.v1.routes.mission.MissionService") as mock_service:
         mock_service.return_value.create_mission_with_enrollment.return_value = (
             test_mission,
             test_enrollment,
+            test_session_log,
         )
         client = TestClient(app)
         client.post("/missions/enrollment", json=valid_mission_create_data)

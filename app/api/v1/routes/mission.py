@@ -35,13 +35,14 @@ async def create_mission_with_enrollment(
     # Override creator_id with authenticated user's ID
     mission_data.creator_id = current_user.id
 
-    mission, enrollment = mission_service.create_mission_with_enrollment(
+    mission, enrollment, enrollment_session_log = mission_service.create_mission_with_enrollment(
         mission_data, current_user.id
     )
 
     return {
         "mission": mission,
         "enrollment": enrollment,
+        "enrollment_session_log": enrollment_session_log,
     }
 
 

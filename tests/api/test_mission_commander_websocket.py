@@ -399,9 +399,16 @@ async def test_process_agent_flow_creates_mission_on_completion():
     test_enrollment.id = "enrollment123"
     test_enrollment.model_dump = MagicMock(return_value={"id": "enrollment123"})
 
+    test_enrollment_session_log = MagicMock()
+    test_enrollment_session_log.id = "enrollment_session_log123"
+    test_enrollment_session_log.model_dump = MagicMock(
+        return_value={"id": "enrollment_session_log123"}
+    )
+
     mission_service.create_mission_with_enrollment.return_value = (
         test_mission,
         test_enrollment,
+        test_enrollment_session_log,
     )
 
     session_log_service = MagicMock()
