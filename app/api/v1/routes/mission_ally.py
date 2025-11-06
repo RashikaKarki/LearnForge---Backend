@@ -457,10 +457,14 @@ class ConnectionManager:
                     self._session_service = DatabaseSessionService(
                         db_url=db_url,
                         creator=self._create_cloud_sql_connection,
-                        pool_size=5,
-                        max_overflow=2,
-                        pool_timeout=30,
+                        pool_size=10,  # Increased from 5 to handle more concurrent requests
+                        max_overflow=5,  # Increased from 2 to handle bursts
+                        pool_timeout=60,  # Increased from 30 to reduce timeout errors
                         pool_recycle=1800,
+                    )
+                    logger.info(
+                        "[ConnectionManager.session_service] DatabaseSessionService initialized with "
+                        "pool_size=10, max_overflow=5, pool_timeout=60"
                     )
                 else:
                     logger.info(
@@ -713,13 +717,57 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
         user_content = Content(parts=[Part(text=user_message)])
         wrapper_transferred = False
 
-        for event in manager.runner.run(
-            user_id=context.user_id, session_id=session_id, new_message=user_content
-        ):
-            transfer_result = await _handle_agent_transfer(event, session_id, manager)
-            if transfer_result == "close":
-                wrapper_transferred = True
-            await _send_text_content(event, session_id, manager)
+        # Run agent with timeout protection and better error handling
+        try:
+            event_generator = manager.runner.run(
+                user_id=context.user_id, session_id=session_id, new_message=user_content
+            )
+
+            # Process events with individual error handling
+            for event in event_generator:
+                try:
+                    transfer_result = await _handle_agent_transfer(event, session_id, manager)
+                    if transfer_result == "close":
+                        wrapper_transferred = True
+                    await _send_text_content(event, session_id, manager)
+                except Exception as event_error:
+                    logger.error(
+                        f"[process_agent_flow] Error processing event in session {session_id}: {event_error}",
+                        exc_info=True,
+                    )
+                    # Continue processing other events even if one fails
+                    continue
+
+        except RuntimeError as e:
+            # Handle async/threading errors specifically
+            error_msg = str(e).lower()
+            if "asyncio" in error_msg or "thread" in error_msg or "event loop" in error_msg:
+                logger.error(
+                    f"[process_agent_flow] Async/threading error in runner for session {session_id}: {e}",
+                    exc_info=True,
+                )
+                raise ValueError(
+                    "Internal processing error occurred. This may be due to resource constraints. "
+                    "Please try again in a moment."
+                ) from e
+            raise
+        except Exception as runner_error:
+            # Log the full error for debugging
+            logger.error(
+                f"[process_agent_flow] Runner error for session {session_id}: {runner_error}",
+                exc_info=True,
+            )
+            # Check for common error patterns
+            error_str = str(runner_error).lower()
+            if "timeout" in error_str or "timed out" in error_str:
+                raise ValueError(
+                    "Request timed out. The agent is taking longer than expected. Please try again."
+                ) from runner_error
+            elif "connection" in error_str or "pool" in error_str:
+                raise ValueError(
+                    "Database connection error. Please try again in a moment."
+                ) from runner_error
+            raise
 
         # Refresh session to get latest state
         await context.refresh_adk_session(session_id)
