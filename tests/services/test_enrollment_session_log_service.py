@@ -434,7 +434,6 @@ def test_get_session_log_by_user_and_enrollment_and_mission_uses_correct_filter(
     existing_session_log,
 ):
     """Should use correct FieldFilter when querying by user_id, mission_id, and enrollment_id."""
-    from google.cloud.firestore_v1.base_query import FieldFilter
 
     collection = FirestoreMocks.collection_empty()
     mock_query = MagicMock()
