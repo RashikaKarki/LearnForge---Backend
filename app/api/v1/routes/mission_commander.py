@@ -269,39 +269,81 @@ async def process_agent_flow(
         user_content = Content(parts=[Part(text=user_message)])
         current_agent = None
 
-        # Stream agent events
-        for event in manager.runner.run(
-            user_id=user_id, session_id=session_id, new_message=user_content
-        ):
-            # Detect agent transfers
-            if hasattr(event, "actions") and event.actions:
-                if hasattr(event.actions, "transfer_to_agent") and event.actions.transfer_to_agent:
-                    transfer_target = event.actions.transfer_to_agent
-                    logger.info(f"Agent handover to {transfer_target} in session {session_id}")
+        # Stream agent events with improved error handling
+        try:
+            event_generator = manager.runner.run(
+                user_id=user_id, session_id=session_id, new_message=user_content
+            )
+            
+            for event in event_generator:
+                try:
+                    # Detect agent transfers
+                    if hasattr(event, "actions") and event.actions:
+                        if hasattr(event.actions, "transfer_to_agent") and event.actions.transfer_to_agent:
+                            transfer_target = event.actions.transfer_to_agent
+                            logger.info(f"Agent handover to {transfer_target} in session {session_id}")
 
-                    if transfer_target == "mission_curator":
-                        await manager.send_message(
-                            session_id,
-                            AgentHandoverMessage(
-                                agent="mission_curator",
-                                message="Creating your personalized learning mission...",
-                            ),
-                        )
+                            if transfer_target == "mission_curator":
+                                await manager.send_message(
+                                    session_id,
+                                    AgentHandoverMessage(
+                                        agent="mission_curator",
+                                        message="Creating your personalized learning mission...",
+                                    ),
+                                )
 
-            # Track current agent
-            if hasattr(event, "author") and event.author:
-                current_agent = event.author
+                    # Track current agent
+                    if hasattr(event, "author") and event.author:
+                        current_agent = event.author
 
-            # Send text content to client (skip internal mission_curator messages)
-            if hasattr(event, "content") and event.content:
-                if hasattr(event.content, "parts"):
-                    for part in event.content.parts:
-                        if (
-                            hasattr(part, "text")
-                            and part.text
-                            and current_agent != "mission_curator"
-                        ):
-                            await manager.send_message(session_id, AgentMessage(message=part.text))
+                    # Send text content to client (skip internal mission_curator messages)
+                    if hasattr(event, "content") and event.content:
+                        if hasattr(event.content, "parts"):
+                            for part in event.content.parts:
+                                if (
+                                    hasattr(part, "text")
+                                    and part.text
+                                    and current_agent != "mission_curator"
+                                ):
+                                    await manager.send_message(session_id, AgentMessage(message=part.text))
+                except Exception as event_error:
+                    logger.error(
+                        f"[process_agent_flow] Error processing event in session {session_id}: {event_error}",
+                        exc_info=True,
+                    )
+                    # Continue processing other events even if one fails
+                    continue
+                    
+        except RuntimeError as e:
+            # Handle async/threading errors specifically
+            error_msg = str(e).lower()
+            if "asyncio" in error_msg or "thread" in error_msg or "event loop" in error_msg:
+                logger.error(
+                    f"[process_agent_flow] Async/threading error in runner for session {session_id}: {e}",
+                    exc_info=True,
+                )
+                raise ValueError(
+                    "Internal processing error occurred. This may be due to resource constraints. "
+                    "Please try again in a moment."
+                ) from e
+            raise
+        except Exception as runner_error:
+            # Log the full error for debugging
+            logger.error(
+                f"[process_agent_flow] Runner error for session {session_id}: {runner_error}",
+                exc_info=True,
+            )
+            # Check for common error patterns
+            error_str = str(runner_error).lower()
+            if "timeout" in error_str or "timed out" in error_str:
+                raise ValueError(
+                    "Request timed out. The agent is taking longer than expected. Please try again."
+                ) from runner_error
+            elif "connection" in error_str or "pool" in error_str:
+                raise ValueError(
+                    "Database connection error. Please try again in a moment."
+                ) from runner_error
+            raise
 
         # Check if mission was created
         updated_session = await manager.session_service.get_session(
