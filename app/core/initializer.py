@@ -1,7 +1,8 @@
-from fastapi import FastAPI
 import json
 import os
 from tempfile import NamedTemporaryFile
+
+from fastapi import FastAPI
 
 from app.initializers.cloud_logging import setup_logging
 from app.initializers.firebase import initialize_firebase
