@@ -35,6 +35,8 @@ class FirestoreMocks:
         # Mock document with item data
         doc = MagicMock()
         doc.to_dict.return_value = item_data
+        # Set doc.id from item_data if it exists, otherwise use a default
+        doc.id = item_data.get("id", "default_id")
 
         # Mock where queries returning the item
         collection.where.return_value.limit.return_value.get.return_value = [doc]
@@ -53,7 +55,12 @@ class FirestoreMocks:
         collection = MagicMock()
 
         # Mock documents with items data
-        docs = [MagicMock(to_dict=MagicMock(return_value=item)) for item in items_data]
+        docs = []
+        for item in items_data:
+            doc = MagicMock()
+            doc.to_dict.return_value = item
+            doc.id = item.get("id", "default_id")
+            docs.append(doc)
 
         # Mock queries returning the items
         collection.where.return_value.limit.return_value.get.return_value = docs
