@@ -45,7 +45,14 @@ class Settings(BaseSettings):
 
     YOUTUBE_API_KEY: str = _read_secret("YOUTUBE_API_KEY", "")
 
+    # Database configuration
     DATABASE_URL: str = _read_secret("DATABASE_URL", "")
+
+    # Cloud SQL specific settings (only used in Cloud Run)
+    INSTANCE_CONNECTION_NAME: str = _read_secret("INSTANCE_CONNECTION_NAME", "")
+    DB_USER: str = _read_secret("DB_USER", "")
+    DB_PASSWORD: str = _read_secret("DB_PASSWORD", "")
+    DB_NAME: str = _read_secret("DB_NAME", "")
 
     def __repr__(self):
         """Override __repr__ to prevent logging sensitive information"""
@@ -57,6 +64,18 @@ class Settings(BaseSettings):
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.ALLOW_ORIGINS.split(",")]
+
+    @property
+    def is_cloud_run(self) -> bool:
+        """Detect if running in Cloud Run environment"""
+        return bool(self.INSTANCE_CONNECTION_NAME)
+
+    @property
+    def use_cloud_sql_connector(self) -> bool:
+        """Determine if Cloud SQL Connector should be used"""
+        return self.is_cloud_run and all(
+            [self.INSTANCE_CONNECTION_NAME, self.DB_USER, self.DB_PASSWORD, self.DB_NAME]
+        )
 
     class Config:
         case_sensitive = True

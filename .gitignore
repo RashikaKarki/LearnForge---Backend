@@ -3,3 +3,4 @@ __pycache__/
 .ruff_cache/
 firebase_key.json
 firestore_key.json
+.DS_Store

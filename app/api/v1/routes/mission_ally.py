@@ -311,20 +311,52 @@ class ConnectionManager:
         self.active_connections: dict[str, WebSocket] = {}
         self._session_service = None
         self._runner = None
+        self._connector = None  # Cloud SQL Connector instance
+
+    def _create_cloud_sql_connection(self):
+        """Create Cloud SQL connection using connector"""
+        from google.cloud.sql.connector import Connector
+
+        if self._connector is None:
+            self._connector = Connector(refresh_strategy="LAZY")
+
+        return self._connector.connect(
+            settings.INSTANCE_CONNECTION_NAME,
+            "pg8000",
+            user=settings.DB_USER,
+            password=settings.DB_PASSWORD,
+            db=settings.DB_NAME,
+        )
 
     @property
     def session_service(self):
         if self._session_service is None:
             try:
-                db_url = settings.DATABASE_URL
-                if not db_url:
-                    raise ValueError("DATABASE_URL is not configured")
+                if settings.use_cloud_sql_connector:
+                    # Cloud Run: Use Cloud SQL Connector
+                    logger.info("Initializing DatabaseSessionService with Cloud SQL Connector")
+                    db_url = "postgresql+pg8000://"
 
-                if not (db_url.startswith("postgresql://") or db_url.startswith("postgres://")):
-                    raise ValueError("Invalid database URL format")
+                    self._session_service = DatabaseSessionService(
+                        db_url=db_url,
+                        creator=self._create_cloud_sql_connection,
+                        pool_size=5,
+                        max_overflow=2,
+                        pool_timeout=30,
+                        pool_recycle=1800,
+                    )
+                else:
+                    # Local: Use DATABASE_URL directly
+                    logger.info("Initializing DatabaseSessionService with DATABASE_URL")
+                    db_url = settings.DATABASE_URL
+                    if not db_url:
+                        raise ValueError("DATABASE_URL is not configured")
 
-                db_url = db_url.strip()
-                self._session_service = DatabaseSessionService(db_url=db_url)
+                    if not (db_url.startswith("postgresql://") or db_url.startswith("postgres://")):
+                        raise ValueError("Invalid database URL format")
+
+                    db_url = db_url.strip()
+                    self._session_service = DatabaseSessionService(db_url=db_url)
             except ValueError:
                 raise
             except Exception as e:
@@ -349,8 +381,20 @@ class ConnectionManager:
 
     async def send_message(self, session_id: str, message: ServerMessage):
         websocket = self.active_connections.get(session_id)
-        if websocket:
-            await websocket.send_json(message.model_dump(mode="json"))
+        if websocket and websocket.client_state.name == "CONNECTED":
+            try:
+                await websocket.send_json(message.model_dump(mode="json"))
+            except Exception:
+                # Connection closed or error sending, disconnect silently
+                self.disconnect(session_id)
+
+    def cleanup(self):
+        """Cleanup Cloud SQL connector on shutdown"""
+        if self._connector is not None:
+            try:
+                self._connector.close()
+            except Exception as e:
+                logger.error(f"Error closing Cloud SQL connector: {e}")
 
 
 _manager_instance = None
@@ -508,7 +552,10 @@ async def _handle_mission_completion(
 
     websocket = manager.active_connections.get(session_id)
     if websocket:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except Exception:
+            pass  # Connection already closed
     manager.disconnect(session_id)
 
 
@@ -620,19 +667,57 @@ async def _process_message(data: dict, session_id: str, context: SessionContext)
 
 
 async def _get_user_from_websocket(websocket: WebSocket, db) -> User:
+    """
+    Authenticate user from WebSocket connection.
+    Supports both Firebase ID tokens and session cookies.
+    """
     token = (
         websocket.query_params.get("token")
         or websocket.cookies.get("session")
         or (websocket.headers.get("authorization") or "").replace("Bearer ", "")
     )
 
+    if not token:
+        raise ValueError("Missing authentication token")
+
+    user_service = UserService(db)
+    decoded_claims = None
+
+    # Try to verify as session cookie first (for backward compatibility)
     try:
         decoded_claims = auth.verify_session_cookie(token, check_revoked=True)
-        user_service = UserService(db)
+    except Exception as session_error:
+        # If it fails with issuer error, it might be an ID token
+        # Check for issuer mismatch error (ID tokens have different issuer)
+        error_str = str(session_error).lower()
+        is_issuer_error = (
+            "iss" in error_str
+            and "issuer" in error_str
+            and (
+                "securetoken.google.com" in error_str or "session.firebase.google.com" in error_str
+            )
+        )
 
-        return user_service.get_user_by_email(decoded_claims.get("email"))
-    except Exception as e:
-        raise ValueError(f"Invalid authentication token: {str(e)}") from e
+        if is_issuer_error:
+            # Try verifying as ID token
+            try:
+                decoded_claims = auth.verify_id_token(token, check_revoked=True)
+            except Exception as id_token_error:
+                raise ValueError(
+                    f"Invalid authentication token (tried both session cookie and ID token): {str(id_token_error)}"
+                ) from id_token_error
+        else:
+            # Re-raise original session cookie error
+            raise ValueError(
+                f"Invalid authentication token: {str(session_error)}"
+            ) from session_error
+
+    # Get user by email from decoded claims
+    email = decoded_claims.get("email")
+    if not email:
+        raise ValueError("Token does not contain email claim")
+
+    return user_service.get_user_by_email(email)
 
 
 async def _handle_websocket_error(websocket: WebSocket, session_id: str | None, error: Exception):
