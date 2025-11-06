@@ -973,13 +973,37 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
             except Exception as iteration_error:
                 # Catch errors that occur during iteration (including from background threads)
                 error_type = type(iteration_error).__name__
-                logger.error(
-                    f"[process_agent_flow] Error during event iteration for session {session_id}: "
-                    f"{iteration_error}, error_type={error_type}",
-                    exc_info=True,
-                )
-                # Re-raise to be handled by outer exception handler
-                raise
+                error_str = str(iteration_error).lower()
+
+                # Check if this is a ClientError that should be handled specially
+                if ClientError and isinstance(iteration_error, ClientError):
+                    logger.error(
+                        f"[process_agent_flow] ClientError during event iteration for session {session_id}: "
+                        f"{iteration_error}, error_type={error_type}",
+                        exc_info=True,
+                    )
+                    # Re-raise to be handled by outer exception handler which has ClientError handling
+                    raise
+                elif (
+                    "clienterror" in error_str
+                    or "invalid_argument" in error_str
+                    or "400" in error_str
+                ):
+                    logger.error(
+                        f"[process_agent_flow] Genai API error during event iteration for session {session_id}: "
+                        f"{iteration_error}, error_type={error_type}",
+                        exc_info=True,
+                    )
+                    # Re-raise to be handled by outer exception handler
+                    raise
+                else:
+                    logger.error(
+                        f"[process_agent_flow] Error during event iteration for session {session_id}: "
+                        f"{iteration_error}, error_type={error_type}",
+                        exc_info=True,
+                    )
+                    # Re-raise to be handled by outer exception handler
+                    raise
 
             logger.info(
                 f"[process_agent_flow] Finished processing {event_count} events for session {session_id}, "
@@ -1044,15 +1068,39 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                 # Try to extract more details from ClientError specifically
                 if ClientError and isinstance(runner_error, ClientError):
                     error_details["is_client_error"] = True
+                    # Extract status_code
                     if hasattr(runner_error, "status_code"):
                         error_details["status_code"] = runner_error.status_code
+                    # Extract response_json (this contains the error details)
                     if hasattr(runner_error, "response_json"):
                         error_details["response_json"] = runner_error.response_json
+                        # Extract nested error message if available
+                        if isinstance(runner_error.response_json, dict):
+                            if "error" in runner_error.response_json:
+                                error_info = runner_error.response_json["error"]
+                                if isinstance(error_info, dict):
+                                    error_details["error_code"] = error_info.get("code")
+                                    error_details["error_message"] = error_info.get("message")
+                                    error_details["error_status"] = error_info.get("status")
+                    # Try to get response object details
                     if hasattr(runner_error, "response"):
                         error_details["has_response"] = True
                         try:
                             if hasattr(runner_error.response, "json"):
-                                error_details["response_json"] = runner_error.response.json()
+                                response_json = runner_error.response.json()
+                                error_details["response_json"] = response_json
+                                # Extract nested error if not already extracted
+                                if "error_code" not in error_details and isinstance(
+                                    response_json, dict
+                                ):
+                                    if "error" in response_json:
+                                        error_info = response_json["error"]
+                                        if isinstance(error_info, dict):
+                                            error_details["error_code"] = error_info.get("code")
+                                            error_details["error_message"] = error_info.get(
+                                                "message"
+                                            )
+                                            error_details["error_status"] = error_info.get("status")
                             if hasattr(runner_error.response, "text"):
                                 response_text = runner_error.response.text
                                 # Truncate if too long
@@ -1064,6 +1112,9 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                                     error_details["response_text"] = response_text
                         except Exception as e:
                             error_details["response_parse_error"] = str(e)
+                    # Also check exception args for error details
+                    if hasattr(runner_error, "args") and runner_error.args:
+                        error_details["exception_args"] = str(runner_error.args)
                 else:
                     # Try to extract details from generic exception
                     if hasattr(runner_error, "status_code"):
@@ -1152,10 +1203,22 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                         f"[process_agent_flow] Failed to serialize error details to JSON: {json_error}"
                     )
 
-                raise ValueError(
-                    "Invalid request format. This may be due to corrupted session data. "
-                    "Please try refreshing your session."
-                ) from runner_error
+                # Provide more specific error message based on error details
+                error_message = "Invalid request format. This may be due to corrupted session data."
+                if "error_code" in error_details:
+                    error_code = error_details.get("error_code")
+                    error_msg = error_details.get("error_message", "")
+                    if error_code == 400 and "invalid argument" in error_msg.lower():
+                        error_message = (
+                            "The request contains invalid data. This may be due to: "
+                            "session state being too large, invalid data format, or corrupted session data. "
+                            "Please try refreshing your session or starting a new one."
+                        )
+
+                logger.error(
+                    f"[process_agent_flow] Raising ValueError for ClientError: {error_message}"
+                )
+                raise ValueError(error_message) from runner_error
             elif "timeout" in error_str or "timed out" in error_str:
                 logger.warning(
                     f"[process_agent_flow] Timeout error detected for session {session_id}"
