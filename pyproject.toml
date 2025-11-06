@@ -28,6 +28,7 @@ google-cloud-logging = "^3.12.1"
 asyncpg = "^0.30.0"
 psycopg2-binary = "^2.9.9"
 cloud-sql-python-connector = {extras = ["pg8000"], version = "^1.18.5"}
+google-generativeai = "^0.8.5"
 
 [tool.poetry.group.dev.dependencies]
 websockets = ">=15.0.1,<16.0.0"

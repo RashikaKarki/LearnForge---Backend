@@ -3,7 +3,7 @@ from google.adk.tools import google_search
 
 
 search_agent = LlmAgent(
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     name="SearchAgent",
     instruction="""
     You're a specialist in Google Search

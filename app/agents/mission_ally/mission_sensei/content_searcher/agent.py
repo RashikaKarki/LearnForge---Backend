@@ -35,7 +35,7 @@ def store_content_search_result(
 store_content_search_result_tool = FunctionTool(func=store_content_search_result)
 
 root_agent = LlmAgent(
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     name="ContentSearcher",
     instruction="""
     You are a content researcher specializing in finding high-quality educational text content.

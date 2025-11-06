@@ -5,7 +5,7 @@ from .tools.store_video_selection import store_video_selection_tool
 
 
 root_agent = LlmAgent(
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     name="VideoSelector",
     instruction="""
     You are an intelligent video curator specializing in finding educational YouTube videos.

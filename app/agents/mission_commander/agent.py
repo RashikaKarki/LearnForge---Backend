@@ -24,7 +24,7 @@ transfer_to_mission_curator_tool = FunctionTool(func=transfer_to_mission_curator
 
 root_agent = LlmAgent(
     name="orchestrator",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     description=(
         "The Orchestrator manages the learning journey by coordinating Pathfinder "
         "(goal clarification) and Mission Curator (roadmap + content generation). "
