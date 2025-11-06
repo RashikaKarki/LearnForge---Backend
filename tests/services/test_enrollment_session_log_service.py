@@ -153,8 +153,10 @@ def test_get_session_log_not_found_raises_404():
 
 
 # Get session log by enrollment_id tests
-def test_get_session_log_by_enrollment_id_found_returns_session_log(existing_session_log):
-    """Should return enrollment session log when found by enrollment_id."""
+def test_get_session_log_by_user_and_enrollment_and_mission_found_returns_session_log(
+    existing_session_log,
+):
+    """Should return enrollment session log when found by user_id, enrollment_id, and mission_id."""
     collection = FirestoreMocks.collection_empty()
     mock_query = MagicMock()
     mock_query.limit.return_value = mock_query
@@ -163,29 +165,49 @@ def test_get_session_log_by_enrollment_id_found_returns_session_log(existing_ses
     doc.to_dict.return_value = existing_session_log
     mock_query.get.return_value = [doc]
 
-    collection.where.return_value = mock_query
+    mock_query_1 = MagicMock()
+    mock_query_2 = MagicMock()
+    mock_query_3 = mock_query
+    mock_query_1.where.return_value = mock_query_2
+    mock_query_2.where.return_value = mock_query_3
+    mock_query_3.limit.return_value = mock_query_3
+    mock_query_3.get.return_value = [doc]
+    collection.where.return_value = mock_query_1
     db = FirestoreMocks.mock_db_with_collection(collection)
     service = EnrollmentSessionLogService(db)
 
-    session_log = service.get_session_log_by_enrollment_id("user123_mission123")
+    session_log = service.get_session_log_by_user_and_enrollment_and_mission(
+        "user123", "user123_mission123", "mission123"
+    )
 
     assert session_log is not None
     assert session_log.enrollment_id == "user123_mission123"
+    assert session_log.user_id == "user123"
+    assert session_log.mission_id == "mission123"
     assert session_log.id == existing_session_log["id"]
 
 
-def test_get_session_log_by_enrollment_id_not_found_returns_none():
-    """Should return None when enrollment session log doesn't exist."""
+def test_get_session_log_by_user_and_enrollment_and_mission_not_found_returns_none():
+    """Should return None when enrollment session log doesn't exist for user_id, enrollment_id, and mission_id."""
     collection = FirestoreMocks.collection_empty()
     mock_query = MagicMock()
     mock_query.limit.return_value = mock_query
     mock_query.get.return_value = []
 
-    collection.where.return_value = mock_query
+    mock_query_1 = MagicMock()
+    mock_query_2 = MagicMock()
+    mock_query_3 = mock_query
+    mock_query_1.where.return_value = mock_query_2
+    mock_query_2.where.return_value = mock_query_3
+    mock_query_3.limit.return_value = mock_query_3
+    mock_query_3.get.return_value = []
+    collection.where.return_value = mock_query_1
     db = FirestoreMocks.mock_db_with_collection(collection)
     service = EnrollmentSessionLogService(db)
 
-    session_log = service.get_session_log_by_enrollment_id("user123_mission123")
+    session_log = service.get_session_log_by_user_and_enrollment_and_mission(
+        "user123", "user123_mission123", "mission123"
+    )
 
     assert session_log is None
 
@@ -408,8 +430,10 @@ def test_mark_session_started_not_found_raises_404():
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_get_session_log_by_enrollment_id_uses_correct_filter(existing_session_log):
-    """Should use correct FieldFilter when querying by enrollment_id."""
+def test_get_session_log_by_user_and_enrollment_and_mission_uses_correct_filter(
+    existing_session_log,
+):
+    """Should use correct FieldFilter when querying by user_id, mission_id, and enrollment_id."""
     from google.cloud.firestore_v1.base_query import FieldFilter
 
     collection = FirestoreMocks.collection_empty()
@@ -420,19 +444,32 @@ def test_get_session_log_by_enrollment_id_uses_correct_filter(existing_session_l
     doc.to_dict.return_value = existing_session_log
     mock_query.get.return_value = [doc]
 
-    collection.where.return_value = mock_query
+    mock_query_1 = MagicMock()
+    mock_query_2 = MagicMock()
+    mock_query_3 = mock_query
+    mock_query_1.where.return_value = mock_query_2
+    mock_query_2.where.return_value = mock_query_3
+    mock_query_3.limit.return_value = mock_query_3
+    mock_query_3.get.return_value = [doc]
+    collection.where.return_value = mock_query_1
     db = FirestoreMocks.mock_db_with_collection(collection)
     service = EnrollmentSessionLogService(db)
 
-    service.get_session_log_by_enrollment_id("user123_mission123")
+    service.get_session_log_by_user_and_enrollment_and_mission(
+        "user123", "user123_mission123", "mission123"
+    )
 
-    collection.where.assert_called_once()
-    # The where() method is called with filter= keyword argument
-    call_kwargs = collection.where.call_args.kwargs
-    assert "filter" in call_kwargs
-    call_args = call_kwargs["filter"]
-    assert call_args is not None
-    assert isinstance(call_args, FieldFilter)
-    assert call_args.field_path == "enrollment_id"
-    assert call_args.op_string == "=="
-    assert call_args.value == "user123_mission123"
+    assert collection.where.call_count == 1
+    assert mock_query_1.where.call_count == 1
+    assert mock_query_2.where.call_count == 1
+
+    first_call = collection.where.call_args.kwargs["filter"]
+    second_call = mock_query_1.where.call_args.kwargs["filter"]
+    third_call = mock_query_2.where.call_args.kwargs["filter"]
+
+    assert first_call.field_path == "user_id"
+    assert first_call.value == "user123"
+    assert second_call.field_path == "enrollment_id"
+    assert second_call.value == "user123_mission123"
+    assert third_call.field_path == "mission_id"
+    assert third_call.value == "mission123"
