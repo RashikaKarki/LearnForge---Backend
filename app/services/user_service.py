@@ -39,7 +39,7 @@ class UserService:
         # Create User object with id and timestamps
         now = datetime.now()
         user_data = {
-            **data.model_dump(),
+            **data.model_dump(mode="json"),
             "id": doc_ref.id,
             "created_at": now,
             "updated_at": now,
