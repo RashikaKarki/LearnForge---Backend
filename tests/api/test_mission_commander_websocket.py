@@ -564,6 +564,8 @@ async def test_connection_manager_send_message_serializes_correctly():
     manager = ConnectionManager()
     mock_ws = MagicMock()
     mock_ws.send_json = AsyncMock()
+    mock_ws.client_state = MagicMock()
+    mock_ws.client_state.name = "CONNECTED"
 
     manager.active_connections["session123"] = mock_ws
 
