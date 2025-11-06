@@ -606,6 +606,91 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
             else []
         )
 
+        try:
+            try:
+                await manager.session_service.get_session(
+                    app_name="mission-ally",
+                    user_id=context.user_id,
+                    session_id=session_id,
+                )
+                logger.info(f"Retrieved existing ADK session: {session_id}")
+            except Exception as get_error:
+                logger.info(f"ADK session not found, creating new one: {session_id}")
+                error_details = {
+                    "error": "ADK session not found, attempting to create",
+                    "app_name": "mission-ally",
+                    "user_id": context.user_id,
+                    "session_id": session_id,
+                    "get_session_error": str(get_error),
+                }
+                logger.info(f"ADK session lookup details: {error_details}")
+
+                starting_index = _find_starting_checkpoint_index(context.enrolled_mission)
+                initial_state = {
+                    "mission_id": context.mission_id,
+                    "user_profile": context.user.model_dump(mode="json"),
+                    "enrolled_mission": context.enrolled_mission.model_dump(mode="json"),
+                    "mission_details": context.mission.model_dump(mode="json"),
+                    "enrollment_session_log_id": context.enrollment_session_log.id,
+                    "current_checkpoint_index": starting_index,
+                    "current_checkpoint_goal": (
+                        "Ended"
+                        if starting_index == -1
+                        else context.enrolled_mission.byte_size_checkpoints[starting_index]
+                    ),
+                    "completed_checkpoints": context.enrolled_mission.completed_checkpoints or [],
+                }
+
+                try:
+                    await manager.session_service.create_session(
+                        app_name="mission-ally",
+                        user_id=context.user_id,
+                        session_id=session_id,
+                        state=initial_state,
+                    )
+                    logger.info(f"Successfully created ADK session: {session_id}")
+                except Exception as create_error:
+                    error_details = {
+                        "error": "Failed to create ADK session in database",
+                        "app_name": "mission-ally",
+                        "user_id": context.user_id,
+                        "session_id": session_id,
+                        "get_session_error": str(get_error),
+                        "create_session_error": str(create_error),
+                    }
+                    logger.error(
+                        f"ADK session creation failed before runner.run(): {error_details}",
+                        exc_info=True,
+                    )
+                    sanitized = _sanitize_error_message(str(create_error))
+                    error_message = (
+                        f"Failed to create session: {session_id}. "
+                        f"Parameters used: app_name='mission-ally', user_id='{context.user_id}', session_id='{session_id}'. "
+                        f"Get session error: {str(get_error)}. "
+                        f"Create session error: {sanitized}"
+                    )
+                    raise ValueError(error_message) from create_error
+        except ValueError:
+            raise
+        except Exception as e:
+            error_details = {
+                "error_type": "Unexpected error during ADK session initialization",
+                "app_name": "mission-ally",
+                "user_id": context.user_id,
+                "session_id": session_id,
+                "error": str(e),
+            }
+            logger.error(
+                f"Unexpected ADK session error before runner.run(): {error_details}", exc_info=True
+            )
+            sanitized = _sanitize_error_message(str(e))
+            error_message = (
+                f"Session initialization failed: {session_id}. "
+                f"Parameters used: app_name='mission-ally', user_id='{context.user_id}', session_id='{session_id}'. "
+                f"Error: {sanitized}"
+            )
+            raise ValueError(error_message) from e
+
         user_content = Content(parts=[Part(text=user_message)])
         wrapper_transferred = False
 
