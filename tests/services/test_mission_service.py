@@ -6,8 +6,8 @@ Tests mission CRUD operations, update propagation, and edge cases.
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import HTTPException
+import pytest
 
 from app.models.mission import MissionCreate, MissionUpdate
 from app.services.mission_service import MissionService

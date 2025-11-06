@@ -3,8 +3,8 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
-import pytest
 from fastapi import HTTPException, status
+import pytest
 
 from app.models.enrollment_session_log import EnrollmentSessionLogCreate, EnrollmentSessionLogUpdate
 from app.services.enrollment_session_log_service import EnrollmentSessionLogService

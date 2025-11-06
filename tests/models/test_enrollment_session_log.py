@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from app.models.enrollment_session_log import (
     EnrollmentSessionLog,

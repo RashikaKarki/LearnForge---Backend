@@ -1,5 +1,5 @@
-import logging
 from datetime import datetime
+import logging
 
 from fastapi import HTTPException, status
 from google.cloud.firestore_v1.base_query import FieldFilter

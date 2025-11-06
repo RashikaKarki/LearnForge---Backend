@@ -3,8 +3,8 @@
 Focus: Data validation and model structure only.
 """
 
-import pytest
 from pydantic import ValidationError
+import pytest
 
 from app.models.websocket_messages import (
     AgentHandoverMessage,

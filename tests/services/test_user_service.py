@@ -6,8 +6,8 @@ Tests all CRUD operations, enrolled missions management, and edge cases.
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import HTTPException
+import pytest
 
 from app.models.user import UserCreate, UserEnrolledMissionCreate, UserEnrolledMissionUpdate
 from app.services.user_service import UserService

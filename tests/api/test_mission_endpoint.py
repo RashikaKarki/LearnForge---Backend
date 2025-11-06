@@ -3,8 +3,8 @@
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import FastAPI, HTTPException, status
+import pytest
 from starlette.testclient import TestClient
 
 from app.api.v1.routes.mission import router

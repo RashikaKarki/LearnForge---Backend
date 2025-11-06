@@ -2,8 +2,8 @@
 
 from datetime import datetime
 
-import pytest
 from fastapi import HTTPException, status
+import pytest
 
 from app.models.session_log import SessionLogCreate, SessionLogUpdate
 from app.services.session_log_service import SessionLogService

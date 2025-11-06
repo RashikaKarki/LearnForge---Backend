@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock
 
-import pytest
 from fastapi import HTTPException, Request
+import pytest
 
 from app.dependencies.auth import get_current_user, get_current_user_optional
 from app.models.user import User

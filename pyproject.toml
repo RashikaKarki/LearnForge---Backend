@@ -65,6 +65,9 @@ known-first-party = ["app"]
 combine-as-imports = false  # Don't combine imports with aliases
 split-on-trailing-comma = true
 lines-after-imports = 2
+force-single-line = false
+force-wrap-aliases = false
+force-sort-within-sections = true
 
 [tool.black]
 line-length = 100

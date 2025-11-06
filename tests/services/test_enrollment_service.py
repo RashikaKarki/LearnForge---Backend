@@ -6,8 +6,8 @@ Tests enrollment CRUD operations, dual-write pattern, and edge cases.
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
-import pytest
 from fastapi import HTTPException
+import pytest
 
 from app.models.enrollment import EnrollmentCreate, EnrollmentUpdate
 from app.services.enrollment_service import EnrollmentService

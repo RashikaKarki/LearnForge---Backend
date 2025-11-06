@@ -7,8 +7,8 @@ FIXTURE PHILOSOPHY:
 This keeps tests self-documenting and easy to read.
 """
 
-import sys
 from pathlib import Path
+import sys
 
 import pytest
 

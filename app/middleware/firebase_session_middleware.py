@@ -1,7 +1,7 @@
 """Firebase Session Cookie Middleware - Alternative to ID token verification"""
 
-import re
 from datetime import timedelta
+import re
 
 from fastapi import Request
 from firebase_admin import auth

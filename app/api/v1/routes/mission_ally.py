@@ -1,4 +1,4 @@
-"""WebSocket endpoint for Mission Ally agent interaction"""
+"""WebSocket endpoint for Mission Ally agent interaction - Optimized"""
 
 import asyncio
 import json
@@ -14,7 +14,7 @@ from google.genai.types import Content, Part
 try:
     from google.cloud.sql.connector import Connector
 except ImportError:
-    Connector = None  # Will be checked when needed
+    Connector = None
 
 from app.agents.mission_ally.agent import root_agent
 from app.core.config import settings
@@ -103,10 +103,16 @@ def _handle_http_exception(e: Exception, resource_name: str, resource_id: str) -
         if e.status_code == 404:
             return ValueError(f"{resource_name} not found: {resource_id}")
         else:
-            logger.error(f"Error retrieving {resource_name.lower()}: {e}", exc_info=True)
+            logger.error(
+                f"[_handle_http_exception] Error retrieving {resource_name.lower()}: {e}",
+                exc_info=True,
+            )
             return ValueError(f"Failed to retrieve {resource_name.lower()}: {str(e)}")
     else:
-        logger.error(f"Unexpected error retrieving {resource_name.lower()}: {e}", exc_info=True)
+        logger.error(
+            f"[_handle_http_exception] Unexpected error retrieving {resource_name.lower()}: {e}",
+            exc_info=True,
+        )
         return ValueError(f"Failed to retrieve {resource_name.lower()}: {str(e)}")
 
 
@@ -118,20 +124,20 @@ async def _close_websocket_with_error(
 ) -> None:
     """Close WebSocket connection with sanitized error message."""
     sanitized = _sanitize_error_message(str(error))
-    logger.error(f"WebSocket error: {sanitized}", exc_info=True)
+    logger.error(f"[_close_websocket_with_error] WebSocket error: {sanitized}", exc_info=True)
 
     try:
         if websocket.client_state.name == "CONNECTED":
             await websocket.send_json(ErrorMessage(message=sanitized).model_dump(mode="json"))
     except Exception:
-        pass  # Ignore send errors
+        pass
 
     try:
         safe_reason = sanitized[:123] if len(sanitized) <= 123 else "Internal server error"
         if websocket.client_state.name == "CONNECTED":
             await websocket.close(code=close_code, reason=safe_reason)
     except Exception:
-        pass  # Ignore close errors
+        pass
 
 
 def _get_mission_id_from_session_state(session_state: dict) -> str | None:
@@ -168,14 +174,15 @@ def _get_mission_id_from_session_state(session_state: dict) -> str | None:
 
 class SessionContext:
     """
-    Caches all database-fetched data and services during WebSocket session lifecycle.
+    Caches all database-fetched data and ADK session during WebSocket session lifecycle.
     Eliminates redundant database calls by fetching once and reusing.
     """
 
-    def __init__(self, db, user_id: str, mission_id: str):
+    def __init__(self, db, user_id: str, mission_id: str, session_service):
         self.db = db
         self.user_id = user_id
         self.mission_id = mission_id
+        self.session_service = session_service
 
         # Services (initialized once, reused throughout)
         self.user_service = UserService(db)
@@ -189,6 +196,7 @@ class SessionContext:
         self._enrollment: Enrollment | None = None
         self._enrolled_mission: UserEnrolledMission | None = None
         self._enrollment_session_log: EnrollmentSessionLog | None = None
+        self._adk_session = None  # Cached ADK session
         self._initialized = False
 
     async def initialize(self) -> tuple[dict, bool]:
@@ -203,7 +211,10 @@ class SessionContext:
         try:
             self._user = self.user_service.get_user(self.user_id)
         except Exception as e:
-            logger.error(f"Failed to retrieve user {self.user_id}: {e}", exc_info=True)
+            logger.error(
+                f"[SessionContext.initialize] Failed to retrieve user {self.user_id}: {e}",
+                exc_info=True,
+            )
             raise ValueError(f"User not found: {self.user_id}") from e
 
         # Fetch mission
@@ -226,7 +237,10 @@ class SessionContext:
                 self.user_id, self.mission_id
             )
         except Exception as e:
-            logger.error(f"Failed to retrieve enrolled mission: {e}", exc_info=True)
+            logger.error(
+                f"[SessionContext.initialize] Failed to retrieve enrolled mission: {e}",
+                exc_info=True,
+            )
             raise ValueError(f"Failed to retrieve enrolled mission: {str(e)}") from e
 
         # Fetch enrollment session log
@@ -276,6 +290,98 @@ class SessionContext:
         self._initialized = True
         return initial_state, was_started
 
+    async def get_or_create_adk_session(self, session_id: str, initial_state: dict):
+        """
+        Get existing ADK session or create new one if it doesn't exist.
+        Caches the session for subsequent calls.
+        """
+        if self._adk_session is not None:
+            return self._adk_session
+
+        try:
+            # Try to get existing session
+            self._adk_session = await self.session_service.get_session(
+                app_name="mission-ally",
+                user_id=self.user_id,
+                session_id=session_id,
+            )
+            if self._adk_session is None:
+                raise ValueError(f"Session {session_id} not found (returned None)")
+            logger.info(
+                f"[SessionContext.get_or_create_adk_session] Retrieved existing ADK session: {session_id}"
+            )
+        except Exception as get_error:
+            # Session doesn't exist, create it
+            logger.info(
+                f"[SessionContext.get_or_create_adk_session] ADK session not found, creating new one: {session_id}"
+            )
+            try:
+                await self.session_service.create_session(
+                    app_name="mission-ally",
+                    user_id=self.user_id,
+                    session_id=session_id,
+                    state=initial_state,
+                )
+                logger.info(
+                    f"[SessionContext.get_or_create_adk_session] Successfully created ADK session: {session_id}"
+                )
+
+                # Fetch the newly created session
+                self._adk_session = await self.session_service.get_session(
+                    app_name="mission-ally",
+                    user_id=self.user_id,
+                    session_id=session_id,
+                )
+            except Exception as create_error:
+                error_details = {
+                    "error": "Failed to create ADK session in database",
+                    "app_name": "mission-ally",
+                    "user_id": self.user_id,
+                    "session_id": session_id,
+                    "get_session_error": str(get_error),
+                    "create_session_error": str(create_error),
+                }
+                logger.error(
+                    f"[SessionContext.get_or_create_adk_session] ADK session creation failed: {error_details}",
+                    exc_info=True,
+                )
+                sanitized = _sanitize_error_message(str(create_error))
+                error_message = (
+                    f"Failed to create session: {session_id}. "
+                    f"Parameters used: app_name='mission-ally', user_id='{self.user_id}', session_id='{session_id}'. "
+                    f"Get session error: {str(get_error)}. "
+                    f"Create session error: {sanitized}"
+                )
+                raise ValueError(error_message) from create_error
+
+        return self._adk_session
+
+    async def refresh_adk_session(self, session_id: str):
+        """
+        Refresh the cached ADK session with latest data from database.
+        Call this after operations that modify session state.
+        """
+        try:
+            self._adk_session = await self.session_service.get_session(
+                app_name="mission-ally",
+                user_id=self.user_id,
+                session_id=session_id,
+            )
+            return self._adk_session
+        except Exception as e:
+            logger.error(
+                f"[SessionContext.refresh_adk_session] Failed to refresh ADK session: {e}",
+                exc_info=True,
+            )
+            raise
+
+    @property
+    def adk_session(self):
+        """Get cached ADK session (must call get_or_create_adk_session first)"""
+        if not self._initialized:
+            raise ValueError("SessionContext not initialized")
+        return self._adk_session
+
     @property
     def user(self) -> User:
         """Get cached user"""
@@ -317,7 +423,7 @@ class ConnectionManager:
         self.active_connections: dict[str, WebSocket] = {}
         self._session_service = None
         self._runner = None
-        self._connector = None  # Cloud SQL Connector instance
+        self._connector = None
 
     def _create_cloud_sql_connection(self):
         """Create Cloud SQL connection using connector"""
@@ -343,8 +449,9 @@ class ConnectionManager:
         if self._session_service is None:
             try:
                 if settings.use_cloud_sql_connector:
-                    # Cloud Run: Use Cloud SQL Connector
-                    logger.info("Initializing DatabaseSessionService with Cloud SQL Connector")
+                    logger.info(
+                        "[ConnectionManager.session_service] Initializing DatabaseSessionService with Cloud SQL Connector"
+                    )
                     db_url = "postgresql+pg8000://"
 
                     self._session_service = DatabaseSessionService(
@@ -356,8 +463,9 @@ class ConnectionManager:
                         pool_recycle=1800,
                     )
                 else:
-                    # Local: Use DATABASE_URL directly
-                    logger.info("Initializing DatabaseSessionService with DATABASE_URL")
+                    logger.info(
+                        "[ConnectionManager.session_service] Initializing DatabaseSessionService with DATABASE_URL"
+                    )
                     db_url = settings.DATABASE_URL
                     if not db_url:
                         raise ValueError("DATABASE_URL is not configured")
@@ -372,7 +480,8 @@ class ConnectionManager:
             except Exception as e:
                 sanitized = _sanitize_error_message(str(e))
                 logger.error(
-                    f"Failed to initialize DatabaseSessionService: {sanitized}", exc_info=True
+                    f"[ConnectionManager.session_service] Failed to initialize DatabaseSessionService: {sanitized}",
+                    exc_info=True,
                 )
                 raise ValueError(sanitized) from None
         return self._session_service
@@ -395,7 +504,6 @@ class ConnectionManager:
             try:
                 await websocket.send_json(message.model_dump(mode="json"))
             except Exception:
-                # Connection closed or error sending, disconnect silently
                 self.disconnect(session_id)
 
     def cleanup(self):
@@ -404,7 +512,7 @@ class ConnectionManager:
             try:
                 self._connector.close()
             except Exception as e:
-                logger.error(f"Error closing Cloud SQL connector: {e}")
+                logger.error(f"[ConnectionManager.cleanup] Error closing Cloud SQL connector: {e}")
 
 
 _manager_instance = None
@@ -430,26 +538,22 @@ def _find_starting_checkpoint_index(enrolled_mission):
 
 
 async def _get_historical_messages(
-    session_id: str, user_id: str, manager: ConnectionManager
+    session_id: str, context: SessionContext
 ) -> HistoricalMessagesMessage:
     """
-    Retrieve historical messages from the session.
+    Retrieve historical messages from the cached session.
     Returns a HistoricalMessagesMessage containing a list of message dicts.
     """
     try:
-        session = await manager.session_service.get_session(
-            app_name="mission-ally",
-            user_id=user_id,
-            session_id=session_id,
-        )
-
-        # Check if session exists and has events
+        session = context.adk_session
         if session is None:
-            logger.warning(f"Session {session_id} not found when retrieving historical messages")
+            logger.warning(
+                f"[_get_historical_messages] Session {session_id} not found when retrieving historical messages"
+            )
             return HistoricalMessagesMessage(messages=[])
 
         if not hasattr(session, "events") or session.events is None:
-            logger.debug(f"Session {session_id} has no events")
+            logger.debug(f"[_get_historical_messages] Session {session_id} has no events")
             return HistoricalMessagesMessage(messages=[])
 
         events = session.events
@@ -472,7 +576,8 @@ async def _get_historical_messages(
         return HistoricalMessagesMessage(messages=messages)
     except Exception as e:
         logger.error(
-            f"Failed to retrieve historical messages for session {session_id}: {e}", exc_info=True
+            f"[_get_historical_messages] Failed to retrieve historical messages for session {session_id}: {e}",
+            exc_info=True,
         )
         return HistoricalMessagesMessage(messages=[])
 
@@ -505,7 +610,10 @@ async def _update_progress_and_send_checkpoint_update(
             CheckpointUpdateMessage(completed_checkpoints=completed_checkpoints, progress=progress),
         )
     except Exception as e:
-        logger.error(f"Failed to update progress for session {session_id}: {e}", exc_info=True)
+        logger.error(
+            f"[_update_progress_and_send_checkpoint_update] Failed to update progress for session {session_id}: {e}",
+            exc_info=True,
+        )
 
 
 async def _handle_agent_transfer(event, session_id: str, manager: ConnectionManager):
@@ -569,7 +677,7 @@ async def _handle_mission_completion(
             context.enrollment_session_log.id
         )
     except Exception as e:
-        logger.error(f"Failed to complete mission: {e}", exc_info=True)
+        logger.error(f"[_handle_mission_completion] Failed to complete mission: {e}", exc_info=True)
 
     # Send closing message and close connection
     await manager.send_message(
@@ -583,7 +691,7 @@ async def _handle_mission_completion(
         try:
             await websocket.close()
         except Exception:
-            pass  # Connection already closed
+            pass
     manager.disconnect(session_id)
 
 
@@ -594,102 +702,13 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
         # Send processing start notification
         await manager.send_message(session_id, AgentProcessingStartMessage())
 
-        # Get session state before processing to track checkpoint changes
-        session_before = await manager.session_service.get_session(
-            app_name="mission-ally",
-            user_id=context.user_id,
-            session_id=session_id,
-        )
+        # Get completed checkpoints before processing (from cached session)
+        session_before = context.adk_session
         completed_checkpoints_before = (
             session_before.state.get("completed_checkpoints", [])
             if session_before and session_before.state
             else []
         )
-
-        try:
-            try:
-                await manager.session_service.get_session(
-                    app_name="mission-ally",
-                    user_id=context.user_id,
-                    session_id=session_id,
-                )
-                logger.info(f"Retrieved existing ADK session: {session_id}")
-            except Exception as get_error:
-                logger.info(f"ADK session not found, creating new one: {session_id}")
-                error_details = {
-                    "error": "ADK session not found, attempting to create",
-                    "app_name": "mission-ally",
-                    "user_id": context.user_id,
-                    "session_id": session_id,
-                    "get_session_error": str(get_error),
-                }
-                logger.info(f"ADK session lookup details: {error_details}")
-
-                starting_index = _find_starting_checkpoint_index(context.enrolled_mission)
-                initial_state = {
-                    "mission_id": context.mission_id,
-                    "user_profile": context.user.model_dump(mode="json"),
-                    "enrolled_mission": context.enrolled_mission.model_dump(mode="json"),
-                    "mission_details": context.mission.model_dump(mode="json"),
-                    "enrollment_session_log_id": context.enrollment_session_log.id,
-                    "current_checkpoint_index": starting_index,
-                    "current_checkpoint_goal": (
-                        "Ended"
-                        if starting_index == -1
-                        else context.enrolled_mission.byte_size_checkpoints[starting_index]
-                    ),
-                    "completed_checkpoints": context.enrolled_mission.completed_checkpoints or [],
-                }
-
-                try:
-                    await manager.session_service.create_session(
-                        app_name="mission-ally",
-                        user_id=context.user_id,
-                        session_id=session_id,
-                        state=initial_state,
-                    )
-                    logger.info(f"Successfully created ADK session: {session_id}")
-                except Exception as create_error:
-                    error_details = {
-                        "error": "Failed to create ADK session in database",
-                        "app_name": "mission-ally",
-                        "user_id": context.user_id,
-                        "session_id": session_id,
-                        "get_session_error": str(get_error),
-                        "create_session_error": str(create_error),
-                    }
-                    logger.error(
-                        f"ADK session creation failed before runner.run(): {error_details}",
-                        exc_info=True,
-                    )
-                    sanitized = _sanitize_error_message(str(create_error))
-                    error_message = (
-                        f"Failed to create session: {session_id}. "
-                        f"Parameters used: app_name='mission-ally', user_id='{context.user_id}', session_id='{session_id}'. "
-                        f"Get session error: {str(get_error)}. "
-                        f"Create session error: {sanitized}"
-                    )
-                    raise ValueError(error_message) from create_error
-        except ValueError:
-            raise
-        except Exception as e:
-            error_details = {
-                "error_type": "Unexpected error during ADK session initialization",
-                "app_name": "mission-ally",
-                "user_id": context.user_id,
-                "session_id": session_id,
-                "error": str(e),
-            }
-            logger.error(
-                f"Unexpected ADK session error before runner.run(): {error_details}", exc_info=True
-            )
-            sanitized = _sanitize_error_message(str(e))
-            error_message = (
-                f"Session initialization failed: {session_id}. "
-                f"Parameters used: app_name='mission-ally', user_id='{context.user_id}', session_id='{session_id}'. "
-                f"Error: {sanitized}"
-            )
-            raise ValueError(error_message) from e
 
         user_content = Content(parts=[Part(text=user_message)])
         wrapper_transferred = False
@@ -702,15 +721,14 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                 wrapper_transferred = True
             await _send_text_content(event, session_id, manager)
 
+        # Refresh session to get latest state
+        await context.refresh_adk_session(session_id)
+        session_after = context.adk_session
+
         # Handle mission completion if wrapper was transferred
         if wrapper_transferred:
-            session = await manager.session_service.get_session(
-                app_name="mission-ally",
-                user_id=context.user_id,
-                session_id=session_id,
-            )
-            if session and session.state:
-                completed_checkpoints = session.state.get("completed_checkpoints", [])
+            if session_after and session_after.state:
+                completed_checkpoints = session_after.state.get("completed_checkpoints", [])
                 await _handle_mission_completion(
                     session_id, context, completed_checkpoints, manager
                 )
@@ -718,15 +736,10 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
             try:
                 await manager.send_message(session_id, AgentProcessingEndMessage())
             except Exception:
-                pass  # Non-critical
+                pass
             return
 
         # Check if completed_checkpoints changed (mark_complete was called)
-        session_after = await manager.session_service.get_session(
-            app_name="mission-ally",
-            user_id=context.user_id,
-            session_id=session_id,
-        )
         if session_after and session_after.state:
             completed_checkpoints_after = session_after.state.get("completed_checkpoints", [])
             if len(completed_checkpoints_after) > len(completed_checkpoints_before):
@@ -739,21 +752,18 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
         # Send processing end notification
         await manager.send_message(session_id, AgentProcessingEndMessage())
     except Exception as e:
-        logger.error(f"Agent processing error: {e}", exc_info=True)
+        logger.error(f"[_process_agent_flow] Agent processing error: {e}", exc_info=True)
         # Send processing end even on error
         try:
             await manager.send_message(session_id, AgentProcessingEndMessage())
         except Exception:
-            pass  # Non-critical
+            pass
         await manager.send_message(session_id, ErrorMessage(message=f"Processing error: {str(e)}"))
 
 
 async def _check_and_mark_completed(session_id: str, context: SessionContext):
     """Check if all checkpoints are completed and mark session as completed if so."""
-    manager = get_manager()
-    session = await manager.session_service.get_session(
-        app_name="mission-ally", user_id=context.user_id, session_id=session_id
-    )
+    session = context.adk_session
 
     if not session or not session.state:
         return
@@ -801,7 +811,6 @@ async def _get_user_from_websocket(websocket: WebSocket, db) -> User:
         decoded_claims = auth.verify_session_cookie(token, check_revoked=True)
     except Exception as session_error:
         # If it fails with issuer error, it might be an ID token
-        # Check for issuer mismatch error (ID tokens have different issuer)
         error_str = str(session_error).lower()
         is_issuer_error = (
             "iss" in error_str
@@ -820,7 +829,6 @@ async def _get_user_from_websocket(websocket: WebSocket, db) -> User:
                     f"Invalid authentication token (tried both session cookie and ID token): {str(id_token_error)}"
                 ) from id_token_error
         else:
-            # Re-raise original session cookie error
             raise ValueError(
                 f"Invalid authentication token: {str(session_error)}"
             ) from session_error
@@ -837,7 +845,7 @@ async def _handle_websocket_error(websocket: WebSocket, session_id: str | None, 
     """Handle WebSocket errors by sending error message to client and disconnecting."""
     manager = get_manager()
     sanitized = _sanitize_error_message(str(error))
-    logger.error(f"WebSocket error: {sanitized}", exc_info=True)
+    logger.error(f"[_handle_websocket_error] WebSocket error: {sanitized}", exc_info=True)
 
     try:
         if session_id:
@@ -845,7 +853,7 @@ async def _handle_websocket_error(websocket: WebSocket, session_id: str | None, 
         elif websocket.client_state.name == "CONNECTED":
             await websocket.send_json(ErrorMessage(message=sanitized).model_dump(mode="json"))
     except Exception:
-        pass  # Ignore send errors
+        pass
 
     if session_id:
         manager.disconnect(session_id)
@@ -855,7 +863,7 @@ async def _handle_websocket_error(websocket: WebSocket, session_id: str | None, 
         if websocket.client_state.name == "CONNECTED":
             await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason=safe_reason)
     except Exception:
-        pass  # Ignore close errors
+        pass
 
 
 @router.websocket("/ws")
@@ -883,7 +891,7 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
 
         # Initialize SessionContext (fetches and caches all required data)
         try:
-            context = SessionContext(db, user.id, mission_id)
+            context = SessionContext(db, user.id, mission_id, manager.session_service)
             initial_state, was_started = await context.initialize()
             session_id = context.enrollment_session_log.id
         except ValueError as e:
@@ -896,75 +904,15 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
             )
             return
 
-        # Create or get ADK session in database
-        # This must exist before runner.run() is called
+        # Get or create ADK session (single place, using cached context)
         try:
-            # Try to get existing session first
-            try:
-                await manager.session_service.get_session(
-                    app_name="mission-ally",
-                    user_id=user.id,
-                    session_id=session_id,
-                )
-                logger.info(f"Retrieved existing ADK session: {session_id}")
-            except Exception as get_error:
-                # Session doesn't exist in database, create it with initial state
-                logger.info(f"ADK session not found, creating new one: {session_id}")
-                error_details = {
-                    "error": "ADK session not found, attempting to create",
-                    "app_name": "mission-ally",
-                    "user_id": user.id,
-                    "session_id": session_id,
-                    "get_session_error": str(get_error),
-                }
-                logger.info(f"ADK session lookup details: {error_details}")
-
-                try:
-                    await manager.session_service.create_session(
-                        app_name="mission-ally",
-                        user_id=user.id,
-                        session_id=session_id,
-                        state=initial_state,
-                    )
-                    logger.info(f"Successfully created ADK session: {session_id}")
-                except Exception as create_error:
-                    # Creation failed - raise error with all parameters used
-                    error_details = {
-                        "error": "Failed to create ADK session in database",
-                        "app_name": "mission-ally",
-                        "user_id": user.id,
-                        "session_id": session_id,
-                        "get_session_error": str(get_error),
-                        "create_session_error": str(create_error),
-                    }
-                    logger.error(f"ADK session creation failed: {error_details}", exc_info=True)
-                    sanitized = _sanitize_error_message(str(create_error))
-                    error_message = (
-                        f"Failed to create session: {session_id}. "
-                        f"Parameters used: app_name='mission-ally', user_id='{user.id}', session_id='{session_id}'. "
-                        f"Get session error: {str(get_error)}. "
-                        f"Create session error: {sanitized}"
-                    )
-                    await _close_websocket_with_error(
-                        websocket, None, ValueError(error_message), status.WS_1011_INTERNAL_ERROR
-                    )
-                    return
+            await context.get_or_create_adk_session(session_id, initial_state)
+        except ValueError as e:
+            await _close_websocket_with_error(websocket, None, e, status.WS_1011_INTERNAL_ERROR)
+            return
         except Exception as e:
-            # Unexpected error - log with all parameters
-            error_details = {
-                "error_type": "Unexpected error during ADK session initialization",
-                "app_name": "mission-ally",
-                "user_id": user.id,
-                "session_id": session_id,
-                "error": str(e),
-            }
-            logger.error(f"Unexpected ADK session error: {error_details}", exc_info=True)
             sanitized = _sanitize_error_message(str(e))
-            error_message = (
-                f"Session initialization failed: {session_id}. "
-                f"Parameters used: app_name='mission-ally', user_id='{user.id}', session_id='{session_id}'. "
-                f"Error: {sanitized}"
-            )
+            error_message = f"Session initialization failed: {sanitized}"
             await _close_websocket_with_error(
                 websocket, None, ValueError(error_message), status.WS_1011_INTERNAL_ERROR
             )
@@ -984,10 +932,13 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
 
         # Send historical messages if they exist
         try:
-            historical_messages = await _get_historical_messages(session_id, user.id, manager)
+            historical_messages = await _get_historical_messages(session_id, context)
             await manager.send_message(session_id, historical_messages)
         except Exception as e:
-            logger.error(f"Failed to get/send historical messages: {e}", exc_info=True)
+            logger.error(
+                f"[_handle_websocket_error] Failed to get/send historical messages: {e}",
+                exc_info=True,
+            )
 
         # Message processing loop
         while True:
@@ -1000,11 +951,10 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
                 data = await websocket.receive_json()
                 await _process_message(data, session_id, context)
             except RuntimeError as e:
-                # Handle websocket connection errors (e.g., "Need to call accept first")
+                # Handle websocket connection errors
                 if "not connected" in str(e).lower() or "accept" in str(e).lower():
                     manager.disconnect(session_id)
                     break
-                # Re-raise other RuntimeErrors
                 raise
             except (ValueError, TypeError) as e:
                 if websocket.client_state.name == "CONNECTED":
@@ -1027,7 +977,10 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
                         pass
             except Exception as e:
                 sanitized = _sanitize_error_message(str(e))
-                logger.error(f"Message processing error: {sanitized}", exc_info=True)
+                logger.error(
+                    f"[_handle_websocket_error] Message processing error: {sanitized}",
+                    exc_info=True,
+                )
                 if websocket.client_state.name == "CONNECTED":
                     try:
                         await manager.send_message(
