@@ -1,6 +1,7 @@
 """Firebase Session Cookie Middleware - Alternative to ID token verification"""
 
 from datetime import timedelta
+import logging
 import re
 
 from fastapi import Request
@@ -15,6 +16,9 @@ from starlette.responses import JSONResponse
 
 from app.models.user import User, UserCreate
 from app.services.user_service import UserService
+
+
+logger = logging.getLogger(__name__)
 
 
 EXCLUDED_PATHS = {
@@ -50,35 +54,96 @@ class FirebaseSessionMiddleware(BaseHTTPMiddleware):
         try:
             # Verify the session cookie. In this case, additional check for revocation is done.
             decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
+            logger.debug(f"Session cookie verified for uid: {decoded_claims.get('uid')}")
 
-            user_create_object = UserCreate(
-                firebase_uid=decoded_claims["uid"],
-                email=decoded_claims.get("email"),
-                name=decoded_claims.get("name"),
-                picture=decoded_claims.get("picture"),
+            # Extract user information from claims
+            firebase_uid = decoded_claims.get("uid")
+            email = decoded_claims.get("email")
+            name = decoded_claims.get("name") or decoded_claims.get("display_name") or "User"
+            picture = decoded_claims.get("picture")
+
+            # Validate required fields
+            if not firebase_uid:
+                logger.error("Firebase UID missing from decoded claims")
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "detail": "Invalid authentication token: missing user ID",
+                        "error_code": "MISSING_UID",
+                    },
+                )
+
+            if not email:
+                logger.error(f"Email missing from Firebase claims for uid: {firebase_uid}")
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "detail": "Invalid authentication token: email required",
+                        "error_code": "MISSING_EMAIL",
+                    },
+                )
+
+            logger.info(
+                f"Creating/getting user: email={email}, firebase_uid={firebase_uid}, name={name}"
             )
 
+            try:
+                user_create_object = UserCreate(
+                    firebase_uid=firebase_uid,
+                    email=email,
+                    name=name,
+                    picture=picture,
+                )
+            except Exception as e:
+                logger.error(f"Failed to create UserCreate object: {e}, claims: {decoded_claims}")
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "detail": f"Invalid user data: {str(e)}",
+                        "error_code": "INVALID_USER_DATA",
+                    },
+                )
+
             user_service = UserService(request.app.state.db)
-            user: User = user_service.get_or_create_user(user_create_object)
+            try:
+                user: User = user_service.get_or_create_user(user_create_object)
+                logger.info(
+                    f"User retrieved/created successfully: id={user.id}, email={user.email}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Failed to get or create user: {e}, email={email}, firebase_uid={firebase_uid}"
+                )
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "detail": f"Failed to retrieve or create user: {str(e)}",
+                        "error_code": "USER_CREATION_FAILED",
+                    },
+                )
 
             request.state.current_user = user
 
         except ExpiredSessionCookieError:
+            logger.warning("Session cookie expired")
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Session expired", "error_code": "SESSION_EXPIRED"},
             )
         except RevokedSessionCookieError:
+            logger.warning("Session cookie revoked")
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Session revoked", "error_code": "SESSION_REVOKED"},
             )
         except InvalidSessionCookieError:
+            logger.warning("Invalid session cookie")
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Invalid session", "error_code": "SESSION_INVALID"},
             )
         except Exception as e:
+            logger.exception(f"Unexpected error in Firebase session middleware: {e}")
             return JSONResponse(
                 status_code=500,
                 content={
