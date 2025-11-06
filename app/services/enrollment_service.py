@@ -60,7 +60,7 @@ class EnrollmentService:
                 detail="User is already enrolled in this mission.",
             )
 
-        enrollment_data = data.model_dump()
+        enrollment_data = data.model_dump(mode="json")
         enrollment_data["id"] = enrollment_id
         enrollment_data["enrolled_at"] = datetime.today()
         enrollment_data["last_accessed_at"] = datetime.today()
@@ -147,7 +147,7 @@ class EnrollmentService:
                 detail=f"Enrollment not found for user '{user_id}' in mission '{mission_id}'.",
             )
 
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        update_data = {k: v for k, v in data.model_dump(mode="json").items() if v is not None}
         if update_data:
             # Always update updated_at and last_accessed_at when updating enrollment
             update_data["updated_at"] = datetime.today()
@@ -255,7 +255,6 @@ class EnrollmentService:
             self.user_service.update_enrolled_mission(
                 user_id=user_id, mission_id=mission_id, data=user_enrolled_update
             )
-            logger.debug(f"Updated last_accessed_at for user '{user_id}' in mission '{mission_id}'")
         except Exception as e:
             logger.error(
                 f"Failed to update last_accessed_at in user subcollection for user '{user_id}' "

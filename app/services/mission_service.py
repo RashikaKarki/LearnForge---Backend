@@ -31,7 +31,7 @@ class MissionService:
     @handle_firestore_exceptions
     def create_mission(self, data: MissionCreate) -> Mission:
         doc_ref = self.collection.document()
-        mission_data = data.model_dump()
+        mission_data = data.model_dump(mode="json")
         mission_data["id"] = doc_ref.id
         mission_data["created_at"] = datetime.today()
         mission_data["updated_at"] = datetime.today()
@@ -112,7 +112,7 @@ class MissionService:
                 detail=f"Mission with ID '{mission_id}' not found.",
             )
 
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        update_data = {k: v for k, v in data.model_dump(mode="json").items() if v is not None}
         if update_data:
             update_data["updated_at"] = datetime.today()
             doc_ref.update(update_data)

@@ -34,7 +34,7 @@ class SessionLogService:
         # Create session log with auto-generated ID
         now = datetime.now()
         session_data = {
-            **data.model_dump(),
+            **data.model_dump(mode="json"),
             "id": doc_ref.id,
             "status": "active",
             "mission_id": None,
@@ -95,7 +95,7 @@ class SessionLogService:
             )
 
         # Build update data (only include non-None values)
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        update_data = {k: v for k, v in data.model_dump(mode="json").items() if v is not None}
 
         if update_data:
             update_data["updated_at"] = datetime.now()

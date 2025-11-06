@@ -32,7 +32,7 @@ class EnrollmentSessionLogService:
 
         now = datetime.now()
         session_data = {
-            **data.model_dump(),
+            **data.model_dump(mode="json"),
             "id": doc_ref.id,
             "status": "created",
             "created_at": now,
@@ -124,7 +124,7 @@ class EnrollmentSessionLogService:
                 detail=f"Enrollment session log with ID '{session_log_id}' not found.",
             )
 
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        update_data = {k: v for k, v in data.model_dump(mode="json").items() if v is not None}
 
         if update_data:
             update_data["updated_at"] = datetime.now()

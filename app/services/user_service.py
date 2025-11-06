@@ -48,13 +48,11 @@ class UserService:
         # Create User object with id and timestamps
         now = datetime.now()
         user_data = {
-            **data.model_dump(),
+            **data.model_dump(mode="json"),
             "id": doc_ref.id,
             "created_at": now,
             "updated_at": now,
         }
-
-        logger.debug(f"User data to be saved: {user_data}")
 
         try:
             doc_ref.set(user_data)
@@ -78,7 +76,6 @@ class UserService:
 
     @handle_firestore_exceptions
     def get_user(self, user_id: str) -> User:
-        logger.debug(f"Fetching user with id: {user_id}")
         doc = self.collection.document(user_id).get()
         if not doc.exists:
             logger.warning(f"User not found: id={user_id}")
@@ -89,17 +86,14 @@ class UserService:
 
         user_data = doc.to_dict()
         user_data["id"] = doc.id
-        logger.debug(f"Successfully retrieved user: id={user_id}, email={user_data.get('email')}")
         return User(**user_data)
 
     @handle_firestore_exceptions
     def get_user_by_email(self, email: str) -> User:
-        logger.debug(f"Fetching user with email: {email}")
         docs = self.collection.where(filter=FieldFilter("email", "==", email)).limit(1).get()
         for doc in docs:
             user_data = doc.to_dict()
             user_data["id"] = doc.id
-            logger.debug(f"Successfully retrieved user by email: id={doc.id}, email={email}")
             return User(**user_data)
         logger.warning(f"User not found by email: {email}")
         raise HTTPException(
@@ -126,7 +120,6 @@ class UserService:
 
     @handle_firestore_exceptions
     def get_enrolled_missions(self, user_id: str, limit: int = 100) -> list[UserEnrolledMission]:
-        logger.debug(f"Fetching enrolled missions for user: {user_id}, limit={limit}")
         docs = self.collection.document(user_id).collection("enrolled_missions").limit(limit).get()
         missions = [UserEnrolledMission(**doc.to_dict()) for doc in docs]
         logger.info(f"Retrieved {len(missions)} enrolled missions for user: {user_id}")
@@ -134,7 +127,6 @@ class UserService:
 
     @handle_firestore_exceptions
     def get_enrolled_mission(self, user_id: str, mission_id: str) -> UserEnrolledMission:
-        logger.debug(f"Fetching enrolled mission: user_id={user_id}, mission_id={mission_id}")
         doc = (
             self.collection.document(user_id)
             .collection("enrolled_missions")
@@ -151,9 +143,6 @@ class UserService:
                 detail=f"Enrolled mission '{mission_id}' not found for user '{user_id}'.",
             )
 
-        logger.debug(
-            f"Successfully retrieved enrolled mission: user_id={user_id}, mission_id={mission_id}"
-        )
         return UserEnrolledMission(**doc.to_dict())
 
     @handle_firestore_exceptions
@@ -181,7 +170,7 @@ class UserService:
             )
 
         # Prepare data with timestamps
-        enrolled_data = data.model_dump()
+        enrolled_data = data.model_dump(mode="json")
         enrolled_data["updated_at"] = datetime.today()
 
         # Create document
@@ -220,17 +209,13 @@ class UserService:
             )
 
         # Only include non-None fields
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        update_data = {k: v for k, v in data.model_dump(mode="json").items() if v is not None}
 
         if update_data:
             update_data["updated_at"] = datetime.today()
             user_enrolled_ref.update(update_data)
             logger.info(
                 f"Successfully updated enrolled mission: user_id={user_id}, mission_id={mission_id}, fields={list(update_data.keys())}"
-            )
-        else:
-            logger.debug(
-                f"No fields to update for enrolled mission: user_id={user_id}, mission_id={mission_id}"
             )
 
         # Fetch and return updated document
@@ -282,7 +267,7 @@ class UserService:
             )
 
         # Only include non-None fields
-        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+        update_data = {k: v for k, v in data.model_dump(mode="json").items() if v is not None}
 
         if update_data:
             update_data["updated_at"] = datetime.now()
@@ -290,8 +275,6 @@ class UserService:
             logger.info(
                 f"Successfully updated user: id={user_id}, fields={list(update_data.keys())}"
             )
-        else:
-            logger.debug(f"No fields to update for user: id={user_id}")
 
         # Fetch and return updated document
         updated_doc = user_ref.get()

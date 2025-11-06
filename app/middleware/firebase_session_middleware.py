@@ -54,7 +54,6 @@ class FirebaseSessionMiddleware(BaseHTTPMiddleware):
         try:
             # Verify the session cookie. In this case, additional check for revocation is done.
             decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
-            logger.debug(f"Session cookie verified for uid: {decoded_claims.get('uid')}")
 
             # Extract user information from claims
             firebase_uid = decoded_claims.get("uid")
