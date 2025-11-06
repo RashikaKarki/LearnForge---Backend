@@ -10,6 +10,11 @@ from google.adk.runners import Runner
 from google.adk.sessions import DatabaseSessionService
 from google.genai.types import Content, Part
 
+try:
+    from google.cloud.sql.connector import Connector
+except ImportError:
+    Connector = None  # Will be checked when needed
+
 from app.agents.mission_ally.agent import root_agent
 from app.core.config import settings
 from app.models.enrollment import Enrollment, EnrollmentUpdate
@@ -315,7 +320,11 @@ class ConnectionManager:
 
     def _create_cloud_sql_connection(self):
         """Create Cloud SQL connection using connector"""
-        from google.cloud.sql.connector import Connector
+        if Connector is None:
+            raise ImportError(
+                "cloud-sql-python-connector package is not installed. "
+                "Install it with: pip install 'cloud-sql-python-connector[pg8000]'"
+            )
 
         if self._connector is None:
             self._connector = Connector(refresh_strategy="LAZY")
