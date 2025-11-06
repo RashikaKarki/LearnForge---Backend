@@ -54,12 +54,27 @@ class UserService:
             "updated_at": now,
         }
 
-        doc_ref.set(user_data)
-        logger.info(
-            f"Successfully created user: id={doc_ref.id}, email={data.email}, firebase_uid={data.firebase_uid}"
-        )
+        logger.debug(f"User data to be saved: {user_data}")
 
-        return User(**user_data)
+        try:
+            doc_ref.set(user_data)
+            logger.info(f"User document saved to Firestore: id={doc_ref.id}")
+        except Exception as e:
+            logger.error(f"Failed to save user to Firestore: {e}, user_data={user_data}")
+            raise
+
+        try:
+            user = User(**user_data)
+            logger.info(
+                f"Successfully created user: id={doc_ref.id}, email={data.email}, firebase_uid={data.firebase_uid}"
+            )
+            return user
+        except Exception as e:
+            logger.error(
+                f"Failed to create User model from user_data: {e}, user_data={user_data}, "
+                f"doc_id={doc_ref.id}"
+            )
+            raise
 
     @handle_firestore_exceptions
     def get_user(self, user_id: str) -> User:
