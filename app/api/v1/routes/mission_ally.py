@@ -620,19 +620,48 @@ async def _process_message(data: dict, session_id: str, context: SessionContext)
 
 
 async def _get_user_from_websocket(websocket: WebSocket, db) -> User:
+    """
+    Authenticate user from WebSocket connection.
+    Supports both Firebase ID tokens and session cookies.
+    """
     token = (
         websocket.query_params.get("token")
         or websocket.cookies.get("session")
         or (websocket.headers.get("authorization") or "").replace("Bearer ", "")
     )
 
+    if not token:
+        raise ValueError("Missing authentication token")
+
+    user_service = UserService(db)
+    decoded_claims = None
+
+    # Try to verify as session cookie first (for backward compatibility)
     try:
         decoded_claims = auth.verify_session_cookie(token, check_revoked=True)
-        user_service = UserService(db)
+    except Exception as session_error:
+        # If it fails with issuer error, it might be an ID token
+        error_str = str(session_error).lower()
+        if "iss" in error_str and "issuer" in error_str:
+            # Try verifying as ID token
+            try:
+                decoded_claims = auth.verify_id_token(token, check_revoked=True)
+            except Exception as id_token_error:
+                raise ValueError(
+                    f"Invalid authentication token (tried both session cookie and ID token): {str(id_token_error)}"
+                ) from id_token_error
+        else:
+            # Re-raise original session cookie error
+            raise ValueError(
+                f"Invalid authentication token: {str(session_error)}"
+            ) from session_error
 
-        return user_service.get_user_by_email(decoded_claims.get("email"))
-    except Exception as e:
-        raise ValueError(f"Invalid authentication token: {str(e)}") from e
+    # Get user by email from decoded claims
+    email = decoded_claims.get("email")
+    if not email:
+        raise ValueError("Token does not contain email claim")
+
+    return user_service.get_user_by_email(email)
 
 
 async def _handle_websocket_error(websocket: WebSocket, session_id: str | None, error: Exception):
