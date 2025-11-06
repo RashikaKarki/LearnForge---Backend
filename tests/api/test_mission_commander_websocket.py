@@ -13,7 +13,7 @@ from app.api.v1.routes.mission_commander import (
     UserMessage,
     handle_disconnect,
     process_agent_flow,
-    validate_session,
+    validate_session_and_authenticate,
 )
 from app.models.enrollment import Enrollment
 from app.models.mission import Mission
@@ -121,16 +121,27 @@ def test_user_message_validation_fails_missing_field():
 
 
 # ============================================================================
-# validate_session() Tests
+# validate_session_and_authenticate() Tests
 # ============================================================================
 
 
 async def test_validate_session_success(mock_websocket, active_session):
     """Should validate active session successfully."""
-    with patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service:
+    with (
+        patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service,
+        patch("app.api.v1.routes.mission_commander.auth") as mock_auth,
+        patch("app.api.v1.routes.mission_commander.UserService") as mock_user_service,
+    ):
         mock_service.return_value.get_session.return_value = active_session
+        mock_auth.verify_session_cookie.return_value = {
+            "email": "test@example.com",
+            "uid": "user123",
+        }
+        mock_user = MagicMock()
+        mock_user.id = "user123"
+        mock_user_service.return_value.get_user_by_email.return_value = mock_user
 
-        result = await validate_session(mock_websocket, "session123", "test_token")
+        result = await validate_session_and_authenticate(mock_websocket, "session123")
 
         assert result is not None
         service, user_id = result
@@ -140,12 +151,23 @@ async def test_validate_session_success(mock_websocket, active_session):
 async def test_validate_session_via_cookie(mock_websocket, active_session):
     """Should validate session using cookie token."""
     mock_websocket.query_params = {}  # No query param token
-    mock_websocket.cookies = {"token": "cookie_token"}
+    mock_websocket.cookies = {"session": "cookie_token"}
 
-    with patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service:
+    with (
+        patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service,
+        patch("app.api.v1.routes.mission_commander.auth") as mock_auth,
+        patch("app.api.v1.routes.mission_commander.UserService") as mock_user_service,
+    ):
         mock_service.return_value.get_session.return_value = active_session
+        mock_auth.verify_session_cookie.return_value = {
+            "email": "test@example.com",
+            "uid": "user123",
+        }
+        mock_user = MagicMock()
+        mock_user.id = "user123"
+        mock_user_service.return_value.get_user_by_email.return_value = mock_user
 
-        result = await validate_session(mock_websocket, "session123", None)
+        result = await validate_session_and_authenticate(mock_websocket, "session123")
 
         assert result is not None
         service, user_id = result
@@ -158,10 +180,21 @@ async def test_validate_session_via_authorization_header(mock_websocket, active_
     mock_websocket.cookies = {}  # No cookie
     mock_websocket.headers = {"authorization": "Bearer header_token"}
 
-    with patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service:
+    with (
+        patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service,
+        patch("app.api.v1.routes.mission_commander.auth") as mock_auth,
+        patch("app.api.v1.routes.mission_commander.UserService") as mock_user_service,
+    ):
         mock_service.return_value.get_session.return_value = active_session
+        mock_auth.verify_session_cookie.return_value = {
+            "email": "test@example.com",
+            "uid": "user123",
+        }
+        mock_user = MagicMock()
+        mock_user.id = "user123"
+        mock_user_service.return_value.get_user_by_email.return_value = mock_user
 
-        result = await validate_session(mock_websocket, "session123", None)
+        result = await validate_session_and_authenticate(mock_websocket, "session123")
 
         assert result is not None
         service, user_id = result
@@ -170,19 +203,31 @@ async def test_validate_session_via_authorization_header(mock_websocket, active_
 
 async def test_validate_session_prefers_query_param_over_cookie(mock_websocket, active_session):
     """Should prefer query param token over cookie (backward compatibility)."""
-    mock_websocket.query_params = {}
-    mock_websocket.cookies = {"token": "cookie_token"}
+    mock_websocket.query_params = {"token": "query_token"}
+    mock_websocket.cookies = {"session": "cookie_token"}
 
-    with patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service:
+    with (
+        patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service,
+        patch("app.api.v1.routes.mission_commander.auth") as mock_auth,
+        patch("app.api.v1.routes.mission_commander.UserService") as mock_user_service,
+    ):
         mock_service.return_value.get_session.return_value = active_session
+        mock_auth.verify_session_cookie.return_value = {
+            "email": "test@example.com",
+            "uid": "user123",
+        }
+        mock_user = MagicMock()
+        mock_user.id = "user123"
+        mock_user_service.return_value.get_user_by_email.return_value = mock_user
 
-        # Pass query param explicitly
-        result = await validate_session(mock_websocket, "session123", "query_token")
+        result = await validate_session_and_authenticate(mock_websocket, "session123")
 
         assert result is not None
         # Query param should be used
         service, user_id = result
         assert user_id == "user123"
+        # Verify query param token was used
+        mock_auth.verify_session_cookie.assert_called_with("query_token", check_revoked=True)
 
 
 async def test_validate_session_missing_token(mock_websocket):
@@ -191,7 +236,7 @@ async def test_validate_session_missing_token(mock_websocket):
     mock_websocket.cookies = {}
     mock_websocket.headers = {}
 
-    result = await validate_session(mock_websocket, "session123", None)
+    result = await validate_session_and_authenticate(mock_websocket, "session123")
 
     assert result is None
     mock_websocket.close.assert_called_once()
@@ -203,7 +248,7 @@ async def test_validate_session_token_not_present_anywhere(mock_websocket):
     mock_websocket.cookies = {}
     mock_websocket.headers = {}
 
-    result = await validate_session(mock_websocket, "session123", None)
+    result = await validate_session_and_authenticate(mock_websocket, "session123")
 
     assert result is None
     mock_websocket.close.assert_called_once()
@@ -225,10 +270,21 @@ async def test_validate_session_inactive_session(mock_websocket):
         completed_at=datetime.now(),
     )
 
-    with patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service:
+    with (
+        patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service,
+        patch("app.api.v1.routes.mission_commander.auth") as mock_auth,
+        patch("app.api.v1.routes.mission_commander.UserService") as mock_user_service,
+    ):
         mock_service.return_value.get_session.return_value = inactive_session
+        mock_auth.verify_session_cookie.return_value = {
+            "email": "test@example.com",
+            "uid": "user123",
+        }
+        mock_user = MagicMock()
+        mock_user.id = "user123"
+        mock_user_service.return_value.get_user_by_email.return_value = mock_user
 
-        result = await validate_session(mock_websocket, "session123", "test_token")
+        result = await validate_session_and_authenticate(mock_websocket, "session123")
 
         assert result is None
         mock_websocket.close.assert_called_once()
@@ -236,10 +292,21 @@ async def test_validate_session_inactive_session(mock_websocket):
 
 async def test_validate_session_not_found(mock_websocket):
     """Should close connection when session not found."""
-    with patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service:
+    with (
+        patch("app.api.v1.routes.mission_commander.SessionLogService") as mock_service,
+        patch("app.api.v1.routes.mission_commander.auth") as mock_auth,
+        patch("app.api.v1.routes.mission_commander.UserService") as mock_user_service,
+    ):
         mock_service.return_value.get_session.side_effect = Exception("Not found")
+        mock_auth.verify_session_cookie.return_value = {
+            "email": "test@example.com",
+            "uid": "user123",
+        }
+        mock_user = MagicMock()
+        mock_user.id = "user123"
+        mock_user_service.return_value.get_user_by_email.return_value = mock_user
 
-        result = await validate_session(mock_websocket, "session123", "test_token")
+        result = await validate_session_and_authenticate(mock_websocket, "session123")
 
         assert result is None
         mock_websocket.close.assert_called_once()

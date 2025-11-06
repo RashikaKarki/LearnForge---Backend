@@ -4,6 +4,7 @@ import json
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from firebase_admin import auth
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService, Session
 from google.genai.types import Content, Part
@@ -24,6 +25,7 @@ from app.models.websocket_messages import (
 from app.models.websocket_messages import MissionCommanderServerMessage as ServerMessage
 from app.services.mission_service import MissionService
 from app.services.session_log_service import SessionLogService
+from app.services.user_service import UserService
 
 
 logger = logging.getLogger(__name__)
@@ -85,28 +87,24 @@ manager = ConnectionManager()
 # ============================================================================
 
 
-async def validate_session(
-    websocket: WebSocket, session_id: str, token: str | None
+async def validate_session_and_authenticate(
+    websocket: WebSocket, session_id: str
 ) -> tuple[SessionLogService, str] | None:
     """
-    Validate session authenticity and status.
+    Validate session authenticity and authenticate user.
     Returns (SessionLogService, user_id) if valid, None otherwise.
 
     Token can be provided via:
-    1. Query parameter: ?token=xxx (current)
-    2. Cookie: token=xxx (more secure)
+    1. Query parameter: ?token=xxx
+    2. Cookie: session=xxx (recommended for browsers)
     3. Authorization header: Bearer xxx (server-to-server only)
     """
     # Try multiple sources for token (in order of preference)
-    if not token:
-        # Check cookies
-        token = websocket.cookies.get("token")
-
-    if not token:
-        # Check Authorization header (works for non-browser clients)
-        auth_header = websocket.headers.get("authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
+    token = (
+        websocket.query_params.get("token")
+        or websocket.cookies.get("session")
+        or (websocket.headers.get("authorization") or "").replace("Bearer ", "")
+    )
 
     if not token:
         logger.warning(f"Missing authentication token for session {session_id}")
@@ -114,7 +112,64 @@ async def validate_session(
         return None
 
     try:
+        # Authenticate user with Firebase
+        # Supports both ID tokens and session cookies
         db = websocket.app.state.db
+        decoded_claims = None
+
+        # Try to verify as session cookie first (for backward compatibility)
+        try:
+            decoded_claims = auth.verify_session_cookie(token, check_revoked=True)
+        except Exception as session_error:
+            # If it fails with issuer error, it might be an ID token
+            # Check for issuer mismatch error (ID tokens have different issuer)
+            error_str = str(session_error).lower()
+            is_issuer_error = (
+                "iss" in error_str
+                and "issuer" in error_str
+                and (
+                    "securetoken.google.com" in error_str
+                    or "session.firebase.google.com" in error_str
+                )
+            )
+
+            if is_issuer_error:
+                # Try verifying as ID token
+                try:
+                    decoded_claims = auth.verify_id_token(token, check_revoked=True)
+                except Exception as id_token_error:
+                    logger.error(
+                        f"Failed to verify token as both session cookie and ID token: {id_token_error}"
+                    )
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
+                    )
+                    return None
+            else:
+                # Re-raise original session cookie error
+                logger.error(f"Failed to verify session cookie: {session_error}")
+                await websocket.close(
+                    code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
+                )
+                return None
+
+        user_service = UserService(db)
+        email = decoded_claims.get("email")
+        if not email:
+            logger.warning("Token does not contain email claim")
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Token missing email"
+            )
+            return None
+
+        user = user_service.get_user_by_email(email)
+
+        if not user:
+            logger.warning(f"User not found for email: {email}")
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="User not found")
+            return None
+
+        # Validate session exists and is active
         session_log_service = SessionLogService(db)
         session_log = session_log_service.get_session(session_id)
 
@@ -125,8 +180,25 @@ async def validate_session(
             )
             return None
 
-        return session_log_service, session_log.user_id
+        # Verify session belongs to authenticated user
+        if session_log.user_id != user.id:
+            logger.warning(
+                f"Session {session_id} belongs to user {session_log.user_id}, "
+                f"not authenticated user {user.id}"
+            )
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Session user mismatch"
+            )
+            return None
 
+        return session_log_service, user.id
+
+    except ValueError as e:
+        logger.error(f"Authentication failed for session {session_id}: {e}")
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
+        )
+        return None
     except Exception as e:
         logger.error(f"Session validation failed for {session_id}: {e}")
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid session")
@@ -258,7 +330,7 @@ async def mission_commander_websocket(websocket: WebSocket, session_id: str):
 
     Authentication (multiple options):
     - Query param: ws://host/api/v1/mission-commander/ws?session_id=X&token=Y
-    - Cookie: Set 'token' cookie before connecting (recommended for browsers)
+    - Cookie: Set 'session' cookie before connecting (recommended for browsers)
     - Header: Authorization: Bearer <token> (server-to-server only)
 
     Flow:
@@ -272,9 +344,8 @@ async def mission_commander_websocket(websocket: WebSocket, session_id: str):
     user_id = None
 
     try:
-        # Validate session and authenticate
-        token = websocket.query_params.get("token")
-        validation_result = await validate_session(websocket, session_id, token)
+        # Validate session and authenticate user
+        validation_result = await validate_session_and_authenticate(websocket, session_id)
         if not validation_result:
             return
 
