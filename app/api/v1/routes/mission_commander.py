@@ -71,8 +71,12 @@ class ConnectionManager:
     async def send_message(self, session_id: str, message: ServerMessage):
         """Send typed message to client"""
         websocket = self.active_connections.get(session_id)
-        if websocket:
-            await websocket.send_json(message.model_dump(mode="json"))
+        if websocket and websocket.client_state.name == "CONNECTED":
+            try:
+                await websocket.send_json(message.model_dump(mode="json"))
+            except Exception:
+                # Connection closed or error sending, disconnect silently
+                self.disconnect(session_id)
 
     def get_session(self, session_id: str) -> Session | None:
         """Retrieve agent session by ID"""
@@ -108,7 +112,10 @@ async def validate_session_and_authenticate(
 
     if not token:
         logger.warning(f"Missing authentication token for session {session_id}")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing token")
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Missing token")
+        except Exception:
+            pass  # Connection already closed
         return None
 
     try:
@@ -141,32 +148,45 @@ async def validate_session_and_authenticate(
                     logger.error(
                         f"Failed to verify token as both session cookie and ID token: {id_token_error}"
                     )
-                    await websocket.close(
-                        code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
-                    )
+                    try:
+                        await websocket.close(
+                            code=status.WS_1008_POLICY_VIOLATION,
+                            reason="Invalid authentication token",
+                        )
+                    except Exception:
+                        pass  # Connection already closed
                     return None
             else:
                 # Re-raise original session cookie error
                 logger.error(f"Failed to verify session cookie: {session_error}")
-                await websocket.close(
-                    code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
-                )
+                try:
+                    await websocket.close(
+                        code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
+                    )
+                except Exception:
+                    pass  # Connection already closed
                 return None
 
         user_service = UserService(db)
         email = decoded_claims.get("email")
         if not email:
             logger.warning("Token does not contain email claim")
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION, reason="Token missing email"
-            )
+            try:
+                await websocket.close(
+                    code=status.WS_1008_POLICY_VIOLATION, reason="Token missing email"
+                )
+            except Exception:
+                pass  # Connection already closed
             return None
 
         user = user_service.get_user_by_email(email)
 
         if not user:
             logger.warning(f"User not found for email: {email}")
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="User not found")
+            try:
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="User not found")
+            except Exception:
+                pass  # Connection already closed
             return None
 
         # Validate session exists and is active
@@ -175,9 +195,12 @@ async def validate_session_and_authenticate(
 
         if session_log.status != "active":
             logger.warning(f"Session {session_id} is {session_log.status}, not active")
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION, reason=f"Session is {session_log.status}"
-            )
+            try:
+                await websocket.close(
+                    code=status.WS_1008_POLICY_VIOLATION, reason=f"Session is {session_log.status}"
+                )
+            except Exception:
+                pass  # Connection already closed
             return None
 
         # Verify session belongs to authenticated user
@@ -186,22 +209,31 @@ async def validate_session_and_authenticate(
                 f"Session {session_id} belongs to user {session_log.user_id}, "
                 f"not authenticated user {user.id}"
             )
-            await websocket.close(
-                code=status.WS_1008_POLICY_VIOLATION, reason="Session user mismatch"
-            )
+            try:
+                await websocket.close(
+                    code=status.WS_1008_POLICY_VIOLATION, reason="Session user mismatch"
+                )
+            except Exception:
+                pass  # Connection already closed
             return None
 
         return session_log_service, user.id
 
     except ValueError as e:
         logger.error(f"Authentication failed for session {session_id}: {e}")
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
-        )
+        try:
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION, reason="Invalid authentication token"
+            )
+        except Exception:
+            pass  # Connection already closed
         return None
     except Exception as e:
         logger.error(f"Session validation failed for {session_id}: {e}")
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid session")
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid session")
+        except Exception:
+            pass  # Connection already closed
         return None
 
 
@@ -439,5 +471,8 @@ async def mission_commander_websocket(websocket: WebSocket, session_id: str):
                 session_log_service.mark_session_error(session_id)
             except Exception as se:
                 logger.error(f"Failed to mark session error: {se}")
-        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        try:
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        except Exception:
+            pass  # Connection already closed
         manager.disconnect(session_id)
