@@ -10,6 +10,7 @@ from app.models.user import UserEnrolledMissionUpdate
 from app.services.enrollment_service import EnrollmentService
 from app.utils.firestore_exception import handle_firestore_exceptions
 
+
 logger = logging.getLogger(__name__)
 
 

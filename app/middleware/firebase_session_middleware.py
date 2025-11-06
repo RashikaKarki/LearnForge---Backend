@@ -16,6 +16,7 @@ from starlette.responses import JSONResponse
 from app.models.user import User, UserCreate
 from app.services.user_service import UserService
 
+
 EXCLUDED_PATHS = {
     r"^/api/v1/auth/create-session$",
     r"^/api/v1/auth/session-status$",

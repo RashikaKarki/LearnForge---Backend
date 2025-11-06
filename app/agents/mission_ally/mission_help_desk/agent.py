@@ -3,6 +3,7 @@ from google.adk.tools import agent_tool
 
 from app.agents.search_agent.agent import search_agent
 
+
 root_agent = LlmAgent(
     name="lumina_help_desk",
     model="gemini-2.5-flash",

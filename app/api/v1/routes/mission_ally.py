@@ -36,6 +36,7 @@ from app.services.enrollment_session_log_service import EnrollmentSessionLogServ
 from app.services.mission_service import MissionService
 from app.services.user_service import UserService
 
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 

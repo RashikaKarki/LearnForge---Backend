@@ -19,6 +19,7 @@ from app.models.enrollment import Enrollment
 from app.models.mission import Mission
 from app.models.session_log import SessionLog
 
+
 # Mark all tests as async using anyio
 pytestmark = pytest.mark.anyio
 

@@ -2,6 +2,7 @@ from google.adk.agents import LlmAgent
 
 from .tools.update_checkpoint_goal import update_checkpoint_goal_tool
 
+
 root_agent = LlmAgent(
     name="lumina_flow_briefer",
     model="gemini-2.5-flash",

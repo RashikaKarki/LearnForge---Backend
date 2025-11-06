@@ -8,6 +8,7 @@ from app.models.session_log import SessionLogCreate, SessionResponse
 from app.models.user import User
 from app.services.session_log_service import SessionLogService
 
+
 router = APIRouter()
 
 

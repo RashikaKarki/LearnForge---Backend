@@ -7,6 +7,7 @@ from .routes.mission_commander import router as mission_commander_router
 from .routes.session import router as session_router
 from .routes.user import router as user_router
 
+
 router = APIRouter()
 
 router.include_router(auth_router, prefix="/auth", tags=["auth"])

@@ -13,6 +13,7 @@ from app.models.user import UserCreate, UserEnrolledMissionCreate, UserEnrolledM
 from app.services.user_service import UserService
 from tests.mocks.firestore import FirestoreMocks
 
+
 # ============================================================================
 # FIXTURES
 # ============================================================================

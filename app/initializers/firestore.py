@@ -6,6 +6,7 @@ from fastapi import Request
 from google.cloud.firestore import Client
 from google.oauth2 import service_account
 
+
 load_dotenv()
 
 

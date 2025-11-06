@@ -2,6 +2,7 @@ from google.adk.agents.llm_agent import LlmAgent
 
 from app.models.mission import MissionCreate
 
+
 root_agent = LlmAgent(
     name="mission_curator",
     model="gemini-2.5-flash",

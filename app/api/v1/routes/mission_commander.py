@@ -25,6 +25,7 @@ from app.models.websocket_messages import MissionCommanderServerMessage as Serve
 from app.services.mission_service import MissionService
 from app.services.session_log_service import SessionLogService
 
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 

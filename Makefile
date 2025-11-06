@@ -64,8 +64,9 @@ deploy: ## Deploy to Google Cloud Run
 	./deploy-cloud-run.sh
 
 format:
-	poetry run ruff check . --fix
+	poetry run isort .
 	poetry run black .
+	poetry run ruff check . --fix
 
 lint: ## Lint code with flake8
 	poetry run flake8 app/ tests/

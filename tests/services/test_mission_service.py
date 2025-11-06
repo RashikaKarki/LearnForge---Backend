@@ -13,6 +13,7 @@ from app.models.mission import MissionCreate, MissionUpdate
 from app.services.mission_service import MissionService
 from tests.mocks.firestore import FirestoreMocks
 
+
 # ============================================================================
 # FIXTURES
 # ============================================================================
