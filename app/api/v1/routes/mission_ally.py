@@ -606,7 +606,6 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
             else []
         )
 
-
         try:
             try:
                 await manager.session_service.get_session(
@@ -659,7 +658,10 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                         "get_session_error": str(get_error),
                         "create_session_error": str(create_error),
                     }
-                    logger.error(f"ADK session creation failed before runner.run(): {error_details}", exc_info=True)
+                    logger.error(
+                        f"ADK session creation failed before runner.run(): {error_details}",
+                        exc_info=True,
+                    )
                     sanitized = _sanitize_error_message(str(create_error))
                     error_message = (
                         f"Failed to create session: {session_id}. "
@@ -678,7 +680,9 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                 "session_id": session_id,
                 "error": str(e),
             }
-            logger.error(f"Unexpected ADK session error before runner.run(): {error_details}", exc_info=True)
+            logger.error(
+                f"Unexpected ADK session error before runner.run(): {error_details}", exc_info=True
+            )
             sanitized = _sanitize_error_message(str(e))
             error_message = (
                 f"Session initialization failed: {session_id}. "
