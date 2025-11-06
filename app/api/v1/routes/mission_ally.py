@@ -443,19 +443,37 @@ async def _get_historical_messages(
             session_id=session_id,
         )
 
+        # Check if session exists and has events
+        if session is None:
+            logger.warning(f"Session {session_id} not found when retrieving historical messages")
+            return HistoricalMessagesMessage(messages=[])
+
+        if not hasattr(session, "events") or session.events is None:
+            logger.debug(f"Session {session_id} has no events")
+            return HistoricalMessagesMessage(messages=[])
+
         events = session.events
         messages = []
         for event in events:
-            if event.author and event.content and event.content.parts:
-                for part in event.content.parts:
-                    if part.text:
-                        if event.author == "user":
-                            messages.append(UserMessage(message=part.text).model_dump(mode="json"))
-                        else:
-                            messages.append(AgentMessage(message=part.text).model_dump(mode="json"))
+            if not event:
+                continue
+            if hasattr(event, "author") and hasattr(event, "content") and event.content:
+                if hasattr(event.content, "parts") and event.content.parts:
+                    for part in event.content.parts:
+                        if hasattr(part, "text") and part.text:
+                            if event.author == "user":
+                                messages.append(
+                                    UserMessage(message=part.text).model_dump(mode="json")
+                                )
+                            else:
+                                messages.append(
+                                    AgentMessage(message=part.text).model_dump(mode="json")
+                                )
         return HistoricalMessagesMessage(messages=messages)
     except Exception as e:
-        logger.error(f"Failed to retrieve historical messages: {e}", exc_info=True)
+        logger.error(
+            f"Failed to retrieve historical messages for session {session_id}: {e}", exc_info=True
+        )
         return HistoricalMessagesMessage(messages=[])
 
 
@@ -793,8 +811,81 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
             )
             return
 
+        # Create or get ADK session in database
+        # This must exist before runner.run() is called
+        try:
+            # Try to get existing session first
+            try:
+                await manager.session_service.get_session(
+                    app_name="mission-ally",
+                    user_id=user.id,
+                    session_id=session_id,
+                )
+                logger.info(f"Retrieved existing ADK session: {session_id}")
+            except Exception as get_error:
+                # Session doesn't exist in database, create it with initial state
+                logger.info(f"ADK session not found, creating new one: {session_id}")
+                error_details = {
+                    "error": "ADK session not found, attempting to create",
+                    "app_name": "mission-ally",
+                    "user_id": user.id,
+                    "session_id": session_id,
+                    "get_session_error": str(get_error),
+                }
+                logger.info(f"ADK session lookup details: {error_details}")
+
+                try:
+                    await manager.session_service.create_session(
+                        app_name="mission-ally",
+                        user_id=user.id,
+                        session_id=session_id,
+                        state=initial_state,
+                    )
+                    logger.info(f"Successfully created ADK session: {session_id}")
+                except Exception as create_error:
+                    # Creation failed - raise error with all parameters used
+                    error_details = {
+                        "error": "Failed to create ADK session in database",
+                        "app_name": "mission-ally",
+                        "user_id": user.id,
+                        "session_id": session_id,
+                        "get_session_error": str(get_error),
+                        "create_session_error": str(create_error),
+                    }
+                    logger.error(f"ADK session creation failed: {error_details}", exc_info=True)
+                    sanitized = _sanitize_error_message(str(create_error))
+                    error_message = (
+                        f"Failed to create session: {session_id}. "
+                        f"Parameters used: app_name='mission-ally', user_id='{user.id}', session_id='{session_id}'. "
+                        f"Get session error: {str(get_error)}. "
+                        f"Create session error: {sanitized}"
+                    )
+                    await _close_websocket_with_error(
+                        websocket, None, ValueError(error_message), status.WS_1011_INTERNAL_ERROR
+                    )
+                    return
+        except Exception as e:
+            # Unexpected error - log with all parameters
+            error_details = {
+                "error_type": "Unexpected error during ADK session initialization",
+                "app_name": "mission-ally",
+                "user_id": user.id,
+                "session_id": session_id,
+                "error": str(e),
+            }
+            logger.error(f"Unexpected ADK session error: {error_details}", exc_info=True)
+            sanitized = _sanitize_error_message(str(e))
+            error_message = (
+                f"Session initialization failed: {session_id}. "
+                f"Parameters used: app_name='mission-ally', user_id='{user.id}', session_id='{session_id}'. "
+                f"Error: {sanitized}"
+            )
+            await _close_websocket_with_error(
+                websocket, None, ValueError(error_message), status.WS_1011_INTERNAL_ERROR
+            )
+            return
+
         # Register WebSocket connection
-        # Note: Session will be created automatically by Runner on first message with initial_state
         manager.active_connections[session_id] = websocket
 
         # Send initial connection message
