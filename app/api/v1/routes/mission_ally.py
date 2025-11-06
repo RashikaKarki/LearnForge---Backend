@@ -464,7 +464,7 @@ class ConnectionManager:
                     )
                     logger.info(
                         "[ConnectionManager.session_service] DatabaseSessionService initialized with "
-                        f"pool_size=10, max_overflow=5, pool_timeout=60"
+                        "pool_size=10, max_overflow=5, pool_timeout=60"
                     )
                 else:
                     logger.info(
@@ -722,7 +722,7 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
             event_generator = manager.runner.run(
                 user_id=context.user_id, session_id=session_id, new_message=user_content
             )
-            
+
             # Process events with individual error handling
             for event in event_generator:
                 try:
@@ -737,7 +737,7 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                     )
                     # Continue processing other events even if one fails
                     continue
-                    
+
         except RuntimeError as e:
             # Handle async/threading errors specifically
             error_msg = str(e).lower()

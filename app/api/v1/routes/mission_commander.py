@@ -274,14 +274,19 @@ async def process_agent_flow(
             event_generator = manager.runner.run(
                 user_id=user_id, session_id=session_id, new_message=user_content
             )
-            
+
             for event in event_generator:
                 try:
                     # Detect agent transfers
                     if hasattr(event, "actions") and event.actions:
-                        if hasattr(event.actions, "transfer_to_agent") and event.actions.transfer_to_agent:
+                        if (
+                            hasattr(event.actions, "transfer_to_agent")
+                            and event.actions.transfer_to_agent
+                        ):
                             transfer_target = event.actions.transfer_to_agent
-                            logger.info(f"Agent handover to {transfer_target} in session {session_id}")
+                            logger.info(
+                                f"Agent handover to {transfer_target} in session {session_id}"
+                            )
 
                             if transfer_target == "mission_curator":
                                 await manager.send_message(
@@ -305,7 +310,9 @@ async def process_agent_flow(
                                     and part.text
                                     and current_agent != "mission_curator"
                                 ):
-                                    await manager.send_message(session_id, AgentMessage(message=part.text))
+                                    await manager.send_message(
+                                        session_id, AgentMessage(message=part.text)
+                                    )
                 except Exception as event_error:
                     logger.error(
                         f"[process_agent_flow] Error processing event in session {session_id}: {event_error}",
@@ -313,7 +320,7 @@ async def process_agent_flow(
                     )
                     # Continue processing other events even if one fails
                     continue
-                    
+
         except RuntimeError as e:
             # Handle async/threading errors specifically
             error_msg = str(e).lower()
