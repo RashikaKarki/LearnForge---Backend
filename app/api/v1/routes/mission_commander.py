@@ -122,8 +122,18 @@ async def validate_session_and_authenticate(
             decoded_claims = auth.verify_session_cookie(token, check_revoked=True)
         except Exception as session_error:
             # If it fails with issuer error, it might be an ID token
+            # Check for issuer mismatch error (ID tokens have different issuer)
             error_str = str(session_error).lower()
-            if "iss" in error_str and "issuer" in error_str:
+            is_issuer_error = (
+                "iss" in error_str
+                and "issuer" in error_str
+                and (
+                    "securetoken.google.com" in error_str
+                    or "session.firebase.google.com" in error_str
+                )
+            )
+
+            if is_issuer_error:
                 # Try verifying as ID token
                 try:
                     decoded_claims = auth.verify_id_token(token, check_revoked=True)
