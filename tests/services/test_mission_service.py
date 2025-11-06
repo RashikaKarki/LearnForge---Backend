@@ -562,13 +562,18 @@ class TestEdgeCases:
     def test_create_mission_with_enrollment_success(
         self, mock_db, mock_user_service, valid_mission_create
     ):
-        """Create mission with auto-enrollment for creator."""
+        """Create mission with auto-enrollment for creator and session_log."""
         missions_collection = MagicMock()
         doc_ref = MagicMock()
         doc_ref.id = "new_mission_id"
         missions_collection.document.return_value = doc_ref
 
-        mock_db.collection.return_value = missions_collection
+        def collection_side_effect(name):
+            if name == "missions":
+                return missions_collection
+            return MagicMock()
+
+        mock_db.collection.side_effect = collection_side_effect
 
         # Mock enrollment service
         from app.services.enrollment_service import EnrollmentService
@@ -588,15 +593,84 @@ class TestEdgeCases:
                 updated_at=datetime(2025, 1, 15),
             )
 
-            service = MissionService(mock_db, mock_user_service)
+            # Mock enrollment session log service
+            from app.models.enrollment_session_log import EnrollmentSessionLog
+            from app.services.enrollment_session_log_service import EnrollmentSessionLogService
 
-            mission, enrollment = service.create_mission_with_enrollment(
-                valid_mission_create, user_id="creator123"
+            with patch.object(
+                EnrollmentSessionLogService, "create_session_log"
+            ) as mock_create_session_log:
+                mock_create_session_log.return_value = EnrollmentSessionLog(
+                    id="enrollment_session_log123",
+                    enrollment_id="creator123_new_mission_id",
+                    user_id="creator123",
+                    mission_id="new_mission_id",
+                    status="created",
+                    created_at=datetime(2025, 1, 15),
+                    updated_at=datetime(2025, 1, 15),
+                    started_at=None,
+                    completed_at=None,
+                )
+
+                service = MissionService(mock_db, mock_user_service)
+
+                mission, enrollment, enrollment_session_log = (
+                    service.create_mission_with_enrollment(
+                        valid_mission_create, user_id="creator123"
+                    )
+                )
+
+                assert mission.id == "new_mission_id"
+                assert enrollment.user_id == "creator123"
+                assert enrollment.mission_id == "new_mission_id"
+                assert enrollment_session_log.id == "enrollment_session_log123"
+                assert enrollment_session_log.mission_id == "new_mission_id"
+                assert enrollment_session_log.user_id == "creator123"
+                assert enrollment_session_log.enrollment_id == "creator123_new_mission_id"
+
+                # Verify enrollment_session_log was created with correct data
+                mock_create_session_log.assert_called_once()
+                call_args = mock_create_session_log.call_args[0][0]
+                assert call_args.mission_id == "new_mission_id"
+                assert call_args.user_id == "creator123"
+                assert call_args.enrollment_id == "creator123_new_mission_id"
+
+                # Verify enrollment was created
+                mock_create_enrollment.assert_called_once()
+                enrollment_call = mock_create_enrollment.call_args[0][0]
+                assert enrollment_call.user_id == "creator123"
+                assert enrollment_call.mission_id == "new_mission_id"
+
+    def test_create_mission_with_enrollment_rollback_on_failure(
+        self, mock_db, mock_user_service, valid_mission_create
+    ):
+        """Mission is deleted if enrollment creation fails."""
+        missions_collection = MagicMock()
+        doc_ref = MagicMock()
+        doc_ref.id = "new_mission_id"
+        missions_collection.document.return_value = doc_ref
+
+        def collection_side_effect(name):
+            if name == "missions":
+                return missions_collection
+            return MagicMock()
+
+        mock_db.collection.side_effect = collection_side_effect
+
+        from app.services.enrollment_service import EnrollmentService
+
+        with patch.object(EnrollmentService, "create_enrollment") as mock_create_enrollment:
+            mock_create_enrollment.side_effect = HTTPException(
+                status_code=500, detail="Enrollment failed"
             )
 
-            assert mission.id == "new_mission_id"
-            assert enrollment.user_id == "creator123"
-            assert enrollment.mission_id == "new_mission_id"
+            service = MissionService(mock_db, mock_user_service)
+
+            with pytest.raises(HTTPException):
+                service.create_mission_with_enrollment(valid_mission_create, user_id="creator123")
+
+            # Verify mission deletion was attempted
+            doc_ref.delete.assert_called_once()
 
     def test_partial_mission_update(self, mock_db, mock_user_service, existing_mission_data):
         """Partial update only changes specified fields."""

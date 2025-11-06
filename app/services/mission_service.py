@@ -40,20 +40,24 @@ class MissionService:
     @handle_firestore_exceptions
     def create_mission_with_enrollment(
         self, data: MissionCreate, user_id: str
-    ) -> tuple[Mission, any]:
+    ) -> tuple[Mission, any, any]:
         """
         Create a mission and automatically enroll the creator.
+        Also creates an enrollment_session_log for tracking learning sessions.
 
         Args:
             data: Mission creation data
             user_id: ID of the user creating the mission (will be auto-enrolled)
 
         Returns:
-            Tuple of (Mission, Enrollment) objects
+            Tuple of (Mission, Enrollment, EnrollmentSessionLog) objects
 
         Raises:
-            HTTPException: If mission or enrollment creation fails
+            HTTPException: If mission, enrollment, or session creation fails
         """
+        from app.models.enrollment_session_log import EnrollmentSessionLogCreate
+        from app.services.enrollment_session_log_service import EnrollmentSessionLogService
+
         # Create the mission first
         mission = self.create_mission(data)
 
@@ -63,7 +67,16 @@ class MissionService:
             enrollment_data = EnrollmentCreate(user_id=user_id, mission_id=mission.id, progress=0.0)
             enrollment = enrollment_service.create_enrollment(enrollment_data)
 
-            return mission, enrollment
+            # Create enrollment session log for tracking learning sessions
+            enrollment_session_log_service = EnrollmentSessionLogService(self.db)
+            session_log_data = EnrollmentSessionLogCreate(
+                enrollment_id=enrollment.id, user_id=user_id, mission_id=mission.id
+            )
+            enrollment_session_log = enrollment_session_log_service.create_session_log(
+                session_log_data
+            )
+
+            return mission, enrollment, enrollment_session_log
 
         except Exception as e:
             # If enrollment fails, delete the created mission to maintain consistency

@@ -296,8 +296,8 @@ async def process_agent_flow(
             )
 
             # Create mission and enroll user
-            mission, enrollment = mission_service.create_mission_with_enrollment(
-                mission_data, creator_id
+            mission, enrollment, enrollment_session_log = (
+                mission_service.create_mission_with_enrollment(mission_data, creator_id)
             )
             logger.info(
                 f"Mission {mission.id} created for user {creator_id} in session {session_id}"
