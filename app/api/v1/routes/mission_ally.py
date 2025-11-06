@@ -594,21 +594,11 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
         # Send processing start notification
         await manager.send_message(session_id, AgentProcessingStartMessage())
 
-        # Get session state before processing to track checkpoint changes
-        session_before = await manager.session_service.get_session(
-            app_name="mission-ally",
-            user_id=context.user_id,
-            session_id=session_id,
-        )
-        completed_checkpoints_before = (
-            session_before.state.get("completed_checkpoints", [])
-            if session_before and session_before.state
-            else []
-        )
-
+        # Get or create ADK session and get session state before processing to track checkpoint changes
+        session_before = None
         try:
             try:
-                await manager.session_service.get_session(
+                session_before = await manager.session_service.get_session(
                     app_name="mission-ally",
                     user_id=context.user_id,
                     session_id=session_id,
@@ -642,13 +632,45 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                 }
 
                 try:
-                    await manager.session_service.create_session(
+                    # Try with session_id parameter first (ADK API standard)
+                    try:
+                        await manager.session_service.create_session(
+                            app_name="mission-ally",
+                            user_id=context.user_id,
+                            session_id=session_id,
+                            state=initial_state,
+                        )
+                        logger.info(f"Successfully created ADK session with session_id parameter: {session_id}")
+                    except Exception as session_id_error:
+                        # If session_id parameter fails, try with id parameter (database column name)
+                        logger.warning(
+                            f"create_session with session_id parameter failed: {session_id_error}. "
+                            f"Trying with id parameter instead.",
+                            exc_info=True
+                        )
+                        try:
+                            await manager.session_service.create_session(
+                                app_name="mission-ally",
+                                user_id=context.user_id,
+                                id=session_id,
+                                state=initial_state,
+                            )
+                            logger.info(f"Successfully created ADK session with id parameter: {session_id}")
+                        except Exception as id_error:
+                            # Both failed - log and re-raise
+                            logger.error(
+                                f"Both session_id and id parameters failed. "
+                                f"session_id error: {session_id_error}, id error: {id_error}",
+                                exc_info=True
+                            )
+                            raise id_error from session_id_error
+                    
+                    # Get the newly created session for checkpoint tracking
+                    session_before = await manager.session_service.get_session(
                         app_name="mission-ally",
                         user_id=context.user_id,
                         session_id=session_id,
-                        state=initial_state,
                     )
-                    logger.info(f"Successfully created ADK session: {session_id}")
                 except Exception as create_error:
                     error_details = {
                         "error": "Failed to create ADK session in database",
@@ -690,6 +712,13 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                 f"Error: {sanitized}"
             )
             raise ValueError(error_message) from e
+
+        # Extract completed checkpoints from session_before for tracking changes
+        completed_checkpoints_before = (
+            session_before.state.get("completed_checkpoints", [])
+            if session_before and session_before.state
+            else []
+        )
 
         user_content = Content(parts=[Part(text=user_message)])
         wrapper_transferred = False
