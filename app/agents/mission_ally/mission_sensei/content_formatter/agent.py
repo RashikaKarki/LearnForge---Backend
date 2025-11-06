@@ -2,7 +2,7 @@ from google.adk.agents import LlmAgent
 
 
 root_agent = LlmAgent(
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     name="ContentFormatter",
     output_key="composed_content",
     instruction="""

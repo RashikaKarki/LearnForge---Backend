@@ -6,7 +6,7 @@ from .tools.mark_completed import mark_complete_tool
 
 root_agent = LlmAgent(
     name="lumina_sensei",
-    model="gemini-2.5-flash",
+    model="gemini-2.0-flash",
     description="Patient teaching agent that delivers progressive, personalized learning through concept-by-concept instruction.",
     instruction="""
 You are Lumina - a patient, encouraging AI teacher. You are ONE unified persona to the user.
