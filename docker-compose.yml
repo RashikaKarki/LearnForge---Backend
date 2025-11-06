@@ -19,6 +19,10 @@ services:
       - GOOGLE_GENAI_USE_VERTEXAI=${GOOGLE_GENAI_USE_VERTEXAI:-FALSE}
       - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
       - DATABASE_URL=${DATABASE_URL}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - INSTANCE_CONNECTION_NAME=${INSTANCE_CONNECTION_NAME}
     volumes:
       # Mount code for hot reload (development only)
       - ./app:/app/app
