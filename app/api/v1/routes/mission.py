@@ -8,6 +8,7 @@ from app.models.mission import Mission, MissionCreate, MissionUpdate
 from app.models.user import User
 from app.services.mission_service import MissionService
 
+
 router = APIRouter()
 
 

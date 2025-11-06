@@ -186,3 +186,16 @@ class UserService:
         return {
             "message": f"Enrolled mission '{mission_id}' deleted successfully for user '{user_id}'."
         }
+
+    @handle_firestore_exceptions
+    def get_first_user(self) -> User | None:
+        """
+        TEMP: Get the first user from the database (for testing purposes only).
+        This should be removed when proper authentication is implemented.
+        """
+        docs = self.collection.limit(1).get()
+        for doc in docs:
+            user_data = doc.to_dict()
+            user_data["id"] = doc.id
+            return User(**user_data)
+        return None

@@ -7,6 +7,7 @@ from .mission_sensei.agent import root_agent as mission_sensei_agent
 from .mission_wrapper.agent import root_agent as wrapper_agent
 from .tools.increment_checkpoint import increment_checkpoint_tool
 
+
 root_agent = LlmAgent(
     name="lumina_orchestrator",
     model="gemini-2.5-flash",

@@ -13,6 +13,7 @@ from app.models.enrollment import EnrollmentCreate, EnrollmentUpdate
 from app.services.enrollment_service import EnrollmentService
 from tests.mocks.firestore import FirestoreMocks
 
+
 # ============================================================================
 # FIXTURES
 # ============================================================================

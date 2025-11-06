@@ -5,6 +5,7 @@ from app.initializers.firestore import get_db
 from app.models.user import User, UserEnrolledMission
 from app.services.user_service import UserService
 
+
 router = APIRouter()
 
 

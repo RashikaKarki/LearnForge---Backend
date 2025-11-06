@@ -1,6 +1,7 @@
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.tools import agent_tool, google_search
 
+
 _search_agent = LlmAgent(
     model="gemini-2.5-flash-exp",
     name="SearchAgent",

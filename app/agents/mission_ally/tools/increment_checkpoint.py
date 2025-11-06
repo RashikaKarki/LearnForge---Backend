@@ -9,7 +9,14 @@ def increment_checkpoint(tool_context: ToolContext) -> str:
     if not mission_details:
         return "Error: Mission details not found. Initialize session first."
 
-    checkpoints = mission_details.byte_size_checkpoints
+    # Handle both dict and object representations
+    if isinstance(mission_details, dict):
+        checkpoints = mission_details.get("byte_size_checkpoints", [])
+    elif hasattr(mission_details, "byte_size_checkpoints"):
+        checkpoints = mission_details.byte_size_checkpoints
+    else:
+        return "Error: Mission details missing byte_size_checkpoints."
+
     current_index = tool_context.state.get("current_checkpoint_index", -1)
 
     if current_index < len(checkpoints) - 1:

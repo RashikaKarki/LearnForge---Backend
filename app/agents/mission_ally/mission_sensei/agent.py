@@ -3,6 +3,7 @@ from google.adk.agents import LlmAgent
 from .content_composer.agent import root_agent as content_composer
 from .tools.mark_completed import mark_complete_tool
 
+
 root_agent = LlmAgent(
     name="lumina_sensei",
     model="gemini-2.5-flash",

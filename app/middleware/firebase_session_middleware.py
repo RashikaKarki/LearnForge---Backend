@@ -1,5 +1,6 @@
 """Firebase Session Cookie Middleware - Alternative to ID token verification"""
 
+import re
 from datetime import timedelta
 
 from fastapi import Request
@@ -15,13 +16,14 @@ from starlette.responses import JSONResponse
 from app.models.user import User, UserCreate
 from app.services.user_service import UserService
 
+
 EXCLUDED_PATHS = {
-    "/api/v1/auth/create-session",
-    "/api/v1/auth/session-status",
-    "/api/health",
-    "/docs",
-    "/openapi.json",
-    "/redoc",
+    r"^/api/v1/auth/create-session$",
+    r"^/api/v1/auth/session-status$",
+    r"^/api/health$",
+    r"^/docs$",
+    r"^/openapi\.json$",
+    r"^/redoc$",
 }
 
 
@@ -30,7 +32,9 @@ class FirebaseSessionMiddleware(BaseHTTPMiddleware):
     SESSION_DURATION = timedelta(days=2)
 
     async def dispatch(self, request: Request, call_next):
-        if request.method == "OPTIONS" or request.url.path in EXCLUDED_PATHS:
+        if request.method == "OPTIONS" or any(
+            re.match(pattern, request.url.path) for pattern in EXCLUDED_PATHS
+        ):
             return await call_next(request)
 
         session_cookie = request.cookies.get(self.COOKIE_NAME)

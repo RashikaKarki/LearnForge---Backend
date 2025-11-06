@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from firebase_admin import auth
 from pydantic import BaseModel
 
+
 router = APIRouter()
 
 
