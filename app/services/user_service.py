@@ -35,7 +35,9 @@ class UserService:
                 raise
 
         if existing:
-            logger.warning(f"User creation failed: user with email '{data.email}' already exists (id: {existing.id})")
+            logger.warning(
+                f"User creation failed: user with email '{data.email}' already exists (id: {existing.id})"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="A user with this email already exists.",
@@ -53,7 +55,9 @@ class UserService:
         }
 
         doc_ref.set(user_data)
-        logger.info(f"Successfully created user: id={doc_ref.id}, email={data.email}, firebase_uid={data.firebase_uid}")
+        logger.info(
+            f"Successfully created user: id={doc_ref.id}, email={data.email}, firebase_uid={data.firebase_uid}"
+        )
 
         return User(**user_data)
 
@@ -90,7 +94,9 @@ class UserService:
 
     @handle_firestore_exceptions
     def get_or_create_user(self, data: UserCreate) -> User:
-        logger.info(f"Getting or creating user with email: {data.email}, firebase_uid: {data.firebase_uid}")
+        logger.info(
+            f"Getting or creating user with email: {data.email}, firebase_uid: {data.firebase_uid}"
+        )
         try:
             user = self.get_user_by_email(data.email)
             logger.info(f"Found existing user: id={user.id}, email={data.email}")
@@ -122,13 +128,17 @@ class UserService:
         )
 
         if not doc.exists:
-            logger.warning(f"Enrolled mission not found: user_id={user_id}, mission_id={mission_id}")
+            logger.warning(
+                f"Enrolled mission not found: user_id={user_id}, mission_id={mission_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Enrolled mission '{mission_id}' not found for user '{user_id}'.",
             )
 
-        logger.debug(f"Successfully retrieved enrolled mission: user_id={user_id}, mission_id={mission_id}")
+        logger.debug(
+            f"Successfully retrieved enrolled mission: user_id={user_id}, mission_id={mission_id}"
+        )
         return UserEnrolledMission(**doc.to_dict())
 
     @handle_firestore_exceptions
@@ -147,7 +157,9 @@ class UserService:
         )
 
         if existing_doc.exists:
-            logger.warning(f"Enrollment already exists: user_id={user_id}, mission_id={data.mission_id}")
+            logger.warning(
+                f"Enrollment already exists: user_id={user_id}, mission_id={data.mission_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"User is already enrolled in mission '{data.mission_id}'.",
@@ -164,7 +176,9 @@ class UserService:
             .document(data.mission_id)
         )
         user_enrolled_ref.set(enrolled_data)
-        logger.info(f"Successfully created enrolled mission: user_id={user_id}, mission_id={data.mission_id}")
+        logger.info(
+            f"Successfully created enrolled mission: user_id={user_id}, mission_id={data.mission_id}"
+        )
 
         return UserEnrolledMission(**enrolled_data)
 
@@ -182,7 +196,9 @@ class UserService:
 
         doc = user_enrolled_ref.get()
         if not doc.exists:
-            logger.warning(f"Enrolled mission not found for update: user_id={user_id}, mission_id={mission_id}")
+            logger.warning(
+                f"Enrolled mission not found for update: user_id={user_id}, mission_id={mission_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Enrolled mission '{mission_id}' not found for user '{user_id}'.",
@@ -194,9 +210,13 @@ class UserService:
         if update_data:
             update_data["updated_at"] = datetime.today()
             user_enrolled_ref.update(update_data)
-            logger.info(f"Successfully updated enrolled mission: user_id={user_id}, mission_id={mission_id}, fields={list(update_data.keys())}")
+            logger.info(
+                f"Successfully updated enrolled mission: user_id={user_id}, mission_id={mission_id}, fields={list(update_data.keys())}"
+            )
         else:
-            logger.debug(f"No fields to update for enrolled mission: user_id={user_id}, mission_id={mission_id}")
+            logger.debug(
+                f"No fields to update for enrolled mission: user_id={user_id}, mission_id={mission_id}"
+            )
 
         # Fetch and return updated document
         updated_doc = user_enrolled_ref.get()
@@ -215,14 +235,18 @@ class UserService:
 
         doc = user_enrolled_ref.get()
         if not doc.exists:
-            logger.warning(f"Enrolled mission not found for deletion: user_id={user_id}, mission_id={mission_id}")
+            logger.warning(
+                f"Enrolled mission not found for deletion: user_id={user_id}, mission_id={mission_id}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Enrolled mission '{mission_id}' not found for user '{user_id}'.",
             )
 
         user_enrolled_ref.delete()
-        logger.info(f"Successfully deleted enrolled mission: user_id={user_id}, mission_id={mission_id}")
+        logger.info(
+            f"Successfully deleted enrolled mission: user_id={user_id}, mission_id={mission_id}"
+        )
 
         return {
             "message": f"Enrolled mission '{mission_id}' deleted successfully for user '{user_id}'."
@@ -248,7 +272,9 @@ class UserService:
         if update_data:
             update_data["updated_at"] = datetime.now()
             user_ref.update(update_data)
-            logger.info(f"Successfully updated user: id={user_id}, fields={list(update_data.keys())}")
+            logger.info(
+                f"Successfully updated user: id={user_id}, fields={list(update_data.keys())}"
+            )
         else:
             logger.debug(f"No fields to update for user: id={user_id}")
 
