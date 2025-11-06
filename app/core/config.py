@@ -44,6 +44,12 @@ class Settings(BaseSettings):
 
     YOUTUBE_API_KEY: str = _read_secret("YOUTUBE_API_KEY", "")
 
+    DATABASE_URL: str = _read_secret("DATABASE_URL", "")
+
+    def __repr__(self):
+        """Override __repr__ to prevent logging sensitive information"""
+        return f"Settings(APP_TITLE='{self.APP_TITLE}', HOST='{self.HOST}', PORT={self.PORT})"
+
     # Paths
     AGENTS_DIR: str = "agents"
 

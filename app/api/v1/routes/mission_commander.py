@@ -2,112 +2,33 @@
 
 import json
 import logging
-from enum import Enum
-from typing import Any, Literal
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService, Session
 from google.genai.types import Content, Part
-from pydantic import BaseModel, Field
 
 from app.agents.mission_commander.agent import root_agent
 from app.models.mission import MissionCreate
+from app.models.websocket_messages import (
+    AgentHandoverMessage,
+    AgentMessage,
+    ConnectedMessage,
+    ErrorMessage,
+    MessageType,
+)
+from app.models.websocket_messages import MissionCommanderServerMessage as ServerMessage
+from app.models.websocket_messages import (
+    MissionCreatedMessage,
+    PingMessage,
+    PongMessage,
+    UserMessage,
+)
 from app.services.mission_service import MissionService
 from app.services.session_log_service import SessionLogService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-# ============================================================================
-# Message Type Definitions
-# ============================================================================
-
-
-class MessageType(str, Enum):
-    """WebSocket message types"""
-
-    USER_MESSAGE = "user_message"
-    AGENT_MESSAGE = "agent_message"
-    AGENT_HANDOVER = "agent_handover"
-    MISSION_CREATED = "mission_created"
-    CONNECTED = "connected"
-    PING = "ping"
-    PONG = "pong"
-    ERROR = "error"
-
-
-# Client → Server Messages
-class UserMessage(BaseModel):
-    """User message from client"""
-
-    type: Literal[MessageType.USER_MESSAGE] = MessageType.USER_MESSAGE
-    message: str = Field(..., min_length=1)
-
-
-class PingMessage(BaseModel):
-    """Ping message for connection keepalive"""
-
-    type: Literal[MessageType.PING] = MessageType.PING
-
-
-ClientMessage = UserMessage | PingMessage
-
-
-# Server → Client Messages
-class ConnectedMessage(BaseModel):
-    """Initial connection confirmation"""
-
-    type: Literal[MessageType.CONNECTED] = MessageType.CONNECTED
-    message: str
-
-
-class AgentMessage(BaseModel):
-    """Agent response during conversation"""
-
-    type: Literal[MessageType.AGENT_MESSAGE] = MessageType.AGENT_MESSAGE
-    message: str
-
-
-class AgentHandoverMessage(BaseModel):
-    """Notification when transferring between agents"""
-
-    type: Literal[MessageType.AGENT_HANDOVER] = MessageType.AGENT_HANDOVER
-    agent: str
-    message: str
-
-
-class MissionCreatedMessage(BaseModel):
-    """Final message with created mission details"""
-
-    type: Literal[MessageType.MISSION_CREATED] = MessageType.MISSION_CREATED
-    mission: dict[str, Any]
-    enrollment: dict[str, Any]
-    message: str
-
-
-class PongMessage(BaseModel):
-    """Response to ping for connection keepalive"""
-
-    type: Literal[MessageType.PONG] = MessageType.PONG
-
-
-class ErrorMessage(BaseModel):
-    """Error notification"""
-
-    type: Literal[MessageType.ERROR] = MessageType.ERROR
-    message: str
-
-
-ServerMessage = (
-    ConnectedMessage
-    | AgentMessage
-    | AgentHandoverMessage
-    | MissionCreatedMessage
-    | PongMessage
-    | ErrorMessage
-)
 
 
 # ============================================================================

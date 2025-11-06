@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Ally WebSocket Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin-bottom: 10px;
+        }
+        
+        .controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .control-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .status {
+            padding: 12px 20px;
+            margin-top: 15px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .chat-container {
+            display: flex;
+            height: 500px;
+        }
+        
+        .messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+        
+        .message.agent {
+            background: white;
+            color: #333;
+            border: 1px solid #dee2e6;
+        }
+        
+        .message.system {
+            background: #e9ecef;
+            color: #495057;
+            font-style: italic;
+            max-width: 100%;
+            text-align: center;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+            max-width: 100%;
+            font-weight: 600;
+        }
+        
+        .message.meta {
+            font-size: 11px;
+            color: #6c757d;
+            margin-top: 4px;
+        }
+        
+        .typing-indicator {
+            display: none;
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            max-width: 80px;
+        }
+        
+        .typing-indicator.show {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+        
+        .typing-text {
+            color: #495057;
+            font-size: 14px;
+            font-style: italic;
+        }
+        
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #dee2e6;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .input-group button {
+            padding: 12px 24px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Mission Ally WebSocket Test</h1>
+            <p>Test the Mission Ally agent WebSocket connection</p>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="missionId">Mission ID</label>
+                <input type="text" id="missionId" value="p3BpROIATqthZT3ckEzd" placeholder="Enter mission ID">
+            </div>
+            <div class="control-group">
+                <label for="wsUrl">WebSocket URL (auto-generated)</label>
+                <input type="text" id="wsUrl" readonly placeholder="URL will be generated from Mission ID">
+            </div>
+            
+            <div class="button-group">
+                <button class="btn-primary" onclick="connect()">Connect</button>
+                <button class="btn-danger" onclick="disconnect()">Disconnect</button>
+                <button class="btn-success" onclick="sendPing()">Send Ping</button>
+            </div>
+            
+            <div id="status" class="status disconnected">Disconnected</div>
+        </div>
+        
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="typing-indicator" id="typingIndicator">
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                    <span class="typing-text">Agent is typing...</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-area">
+            <div class="input-group">
+                <input type="text" id="messageInput" placeholder="Type your message here..." onkeypress="handleKeyPress(event)">
+                <button class="btn-primary" onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+        
+        function showTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.classList.add('show');
+            // Scroll to bottom to show typing indicator
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function hideTypingIndicator() {
+            const indicator = document.getElementById('typingIndicator');
+            indicator.classList.remove('show');
+        }
+
+        function addMessage(text, type = 'system', meta = null) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.dataset.timestamp = Date.now();
+            
+            let content = text;
+            if (meta) {
+                content += `<div class="message meta">${JSON.stringify(meta, null, 2)}</div>`;
+            }
+            
+            messageDiv.innerHTML = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateStatus(status, text) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${status}`;
+            statusDiv.textContent = text;
+        }
+
+        function updateUrl() {
+            const missionId = document.getElementById('missionId').value;
+            if (missionId) {
+                // Default to localhost:8080 if hostname is empty or for local testing
+                const hostname = window.location.hostname || 'localhost';
+                const baseUrl = (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') 
+                    ? 'ws://localhost:8080' 
+                    : `ws://${hostname}:8080`;
+                const url = `${baseUrl}/api/v1/mission-ally/ws?mission_id=${encodeURIComponent(missionId)}`;
+                document.getElementById('wsUrl').value = url;
+            }
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                addMessage('Already connected!', 'system');
+                return;
+            }
+
+            const missionId = document.getElementById('missionId').value;
+            if (!missionId) {
+                addMessage('❌ Please enter a Mission ID', 'system');
+                return;
+            }
+
+            updateUrl();
+            const url = document.getElementById('wsUrl').value;
+
+            updateStatus('connecting', 'Connecting...');
+            addMessage(`Connecting to ${url}...`, 'system');
+
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = function(event) {
+                    updateStatus('connected', 'Connected');
+                    hideTypingIndicator();
+                    addMessage('✅ WebSocket connection established!', 'system');
+                    reconnectAttempts = 0;
+                };
+
+                ws.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleMessage(data);
+                    } catch (e) {
+                        addMessage(`Raw message: ${event.data}`, 'system');
+                    }
+                };
+
+                ws.onerror = function(error) {
+                    updateStatus('disconnected', 'Connection Error');
+                    addMessage(`❌ WebSocket error occurred`, 'system', { error: error });
+                };
+
+                ws.onclose = function(event) {
+                    updateStatus('disconnected', 'Disconnected');
+                    const closeReason = event.reason || 'No reason';
+                    
+                    // Don't auto-reconnect on error codes (1008, 1011) or normal closure (1000)
+                    const isError = event.code === 1008 || event.code === 1011;
+                    const isNormal = event.code === 1000;
+                    
+                    if (isError) {
+                        addMessage(`🔌 WebSocket closed due to error (code: ${event.code}, reason: ${closeReason})`, 'system', { code: event.code, reason: closeReason });
+                    } else if (isNormal) {
+                        addMessage(`🔌 WebSocket closed normally`, 'system');
+                    } else {
+                        addMessage(`🔌 WebSocket closed (code: ${event.code}, reason: ${closeReason})`, 'system');
+                        // Auto-reconnect logic only for unexpected closures
+                        if (reconnectAttempts < maxReconnectAttempts) {
+                            reconnectAttempts++;
+                            addMessage(`Attempting to reconnect (${reconnectAttempts}/${maxReconnectAttempts})...`, 'system');
+                            setTimeout(connect, 2000);
+                        }
+                    }
+                };
+            } catch (error) {
+                updateStatus('disconnected', 'Connection Failed');
+                addMessage(`❌ Failed to connect: ${error.message}`, 'system');
+            }
+        }
+
+        function handleMessage(data) {
+            console.log('Received message:', data);
+            
+            switch(data.type) {
+                case 'connected':
+                    addMessage(`📡 ${data.message}`, 'system');
+                    break;
+                    
+                case 'agent_message':
+                    // Don't hide typing indicator here - wait for processing_end
+                    addMessage(data.message, 'agent', { type: 'agent_message' });
+                    break;
+                    
+                case 'agent_handover':
+                    // Keep typing indicator showing during handover
+                    addMessage(`🔄 ${data.message}`, 'system', { agent: data.agent });
+                    break;
+                    
+                case 'agent_processing_start':
+                    showTypingIndicator();
+                    break;
+                    
+                case 'agent_processing_end':
+                    hideTypingIndicator();
+                    break;
+                    
+                case 'checkpoint_update':
+                    addMessage(
+                        `✅ Checkpoint Update: Progress ${data.progress.toFixed(1)}% | Completed: ${data.completed_checkpoints.length} checkpoints`,
+                        'system',
+                        { 
+                            type: 'checkpoint_update',
+                            progress: data.progress,
+                            completed_checkpoints: data.completed_checkpoints
+                        }
+                    );
+                    break;
+                    
+                case 'session_closed':
+                    addMessage(`🎉 ${data.message}`, 'system', { type: 'session_closed' });
+                    break;
+                    
+                case 'historical_messages':
+                    if (data.messages && data.messages.length > 0) {
+                        // Server is sending historical messages because session was already started
+                        // Clear existing messages and display server's historical ones
+                        addMessage(`📜 Loading ${data.messages.length} historical message(s) from server...`, 'system');
+                        
+                        // Clear existing messages and load server's historical ones
+                        const messagesDiv = document.getElementById('messages');
+                        // Save the typing indicator element
+                        const typingIndicator = document.getElementById('typingIndicator');
+                        messagesDiv.innerHTML = '';
+                        // Re-add the typing indicator
+                        messagesDiv.appendChild(typingIndicator);
+                        
+                        // Add server's historical messages (these are the past conversation)
+                        // Handle both old format (role/text) and new format (type/message)
+                        data.messages.forEach(msg => {
+                            let messageText, messageType;
+                            
+                            // Check if it's the new format with type and message fields
+                            if (msg.type === 'user_message' && msg.message) {
+                                messageText = msg.message;
+                                messageType = 'user';
+                            } else if (msg.type === 'agent_message' && msg.message) {
+                                messageText = msg.message;
+                                messageType = 'agent';
+                            } else if (msg.role && msg.text) {
+                                // Old format: role and text
+                                messageText = msg.text;
+                                messageType = msg.role === 'user' ? 'user' : 'agent';
+                            } else {
+                                // Fallback: try to extract message from any format
+                                messageText = msg.message || msg.text || JSON.stringify(msg);
+                                messageType = 'system';
+                            }
+                            
+                            addMessage(messageText, messageType, { historical: true, fromServer: true });
+                        });
+                        
+                        addMessage(`✅ Loaded ${data.messages.length} historical message(s) from server`, 'system');
+                    } else {
+                        addMessage('📜 No historical messages found on server', 'system');
+                    }
+                    break;
+                    
+                case 'pong':
+                    addMessage('🏓 Pong received', 'system');
+                    break;
+                    
+                case 'error':
+                    // Hide typing indicator on error (server should send processing_end, but be safe)
+                    hideTypingIndicator();
+                    addMessage(`❌ Error: ${data.message}`, 'error', { type: 'error', message: data.message });
+                    // Disconnect on error
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        setTimeout(() => {
+                            ws.close();
+                            updateStatus('disconnected', 'Disconnected (Error)');
+                            addMessage('🔌 Disconnected due to error', 'system');
+                        }, 1000); // Give time for error message to be displayed
+                    }
+                    break;
+                    
+                default:
+                    addMessage(`📨 Unknown message type: ${data.type}`, 'system', data);
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message) {
+                return;
+            }
+            
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('❌ Not connected. Please connect first.', 'system');
+                return;
+            }
+
+            const messageData = {
+                type: 'user_message',
+                message: message
+            };
+
+            ws.send(JSON.stringify(messageData));
+            addMessage(message, 'user');
+            // Don't show typing indicator here - wait for agent_processing_start from server
+            input.value = '';
+        }
+
+        function sendPing() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('❌ Not connected. Please connect first.', 'system');
+                return;
+            }
+
+            const pingData = {
+                type: 'ping'
+            };
+
+            ws.send(JSON.stringify(pingData));
+            addMessage('🏓 Ping sent', 'system');
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close(1000, 'User disconnected');
+                ws = null;
+            }
+            hideTypingIndicator();
+            updateStatus('disconnected', 'Disconnected');
+            addMessage('🔌 Disconnected by user', 'system');
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        // Initialize
+        document.getElementById('missionId').addEventListener('input', updateUrl);
+        updateUrl();
+        
+        // Show initial message - historical messages will come from server when connecting
+        addMessage('Ready to test WebSocket connection. Enter a Mission ID and click Connect to start.', 'system');
+    </script>
+</body>
+</html>
+

@@ -1,5 +1,7 @@
 """Unit tests for Firebase session middleware."""
 
+from unittest.mock import MagicMock
+
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
@@ -9,6 +11,7 @@ from app.middleware.firebase_session_middleware import FirebaseSessionMiddleware
 def test_middleware_missing_cookie():
     """Should return 401 without cookie."""
     app = FastAPI()
+    app.state.db = MagicMock()  # Mock database for middleware
     app.add_middleware(FirebaseSessionMiddleware)
 
     @app.get("/test")
@@ -19,6 +22,7 @@ def test_middleware_missing_cookie():
     response = client.get("/test")
 
     assert response.status_code == 401
+    assert "Missing session cookie" in response.json()["detail"]
 
 
 def test_middleware_excluded_path():
