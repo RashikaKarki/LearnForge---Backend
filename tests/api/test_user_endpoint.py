@@ -170,3 +170,144 @@ def test_get_enrolled_missions_respects_limit(test_app, test_user):
         mock_service.return_value.get_enrolled_missions.assert_called_once_with(
             test_user.id, limit=50
         )
+
+
+def test_update_user_name_success(test_app, test_user):
+    """Should successfully update user name."""
+    updated_user = User(
+        id="user123",
+        firebase_uid="firebase_uid_123",
+        name="Updated Name",
+        email="test@example.com",
+        learning_style=["examples", "step-by-step"],
+    )
+    test_app.dependency_overrides[get_current_user] = lambda: test_user
+    test_app.include_router(router, prefix="/user")
+    with patch("app.api.v1.routes.user.UserService") as mock_service:
+        mock_service.return_value.update_user.return_value = updated_user
+        client = TestClient(test_app)
+        response = client.put(
+            "/user/update",
+            json={"name": "Updated Name"},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == "Updated Name"
+        mock_service.return_value.update_user.assert_called_once()
+
+
+def test_update_user_learning_style_success(test_app, test_user):
+    """Should successfully update user learning style."""
+    updated_user = User(
+        id="user123",
+        firebase_uid="firebase_uid_123",
+        name="Test User",
+        email="test@example.com",
+        learning_style=["metaphors", "analogies"],
+    )
+    test_app.dependency_overrides[get_current_user] = lambda: test_user
+    test_app.include_router(router, prefix="/user")
+    with patch("app.api.v1.routes.user.UserService") as mock_service:
+        mock_service.return_value.update_user.return_value = updated_user
+        client = TestClient(test_app)
+        response = client.put(
+            "/user/update",
+            json={"learning_style": ["metaphors", "analogies"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["learning_style"] == ["metaphors", "analogies"]
+        mock_service.return_value.update_user.assert_called_once()
+
+
+def test_update_user_name_and_learning_style_success(test_app, test_user):
+    """Should successfully update both name and learning style."""
+    updated_user = User(
+        id="user123",
+        firebase_uid="firebase_uid_123",
+        name="Updated Name",
+        email="test@example.com",
+        learning_style=["step-by-step", "examples"],
+    )
+    test_app.dependency_overrides[get_current_user] = lambda: test_user
+    test_app.include_router(router, prefix="/user")
+    with patch("app.api.v1.routes.user.UserService") as mock_service:
+        mock_service.return_value.update_user.return_value = updated_user
+        client = TestClient(test_app)
+        response = client.put(
+            "/user/update",
+            json={"name": "Updated Name", "learning_style": ["step-by-step", "examples"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["name"] == "Updated Name"
+        assert response.json()["learning_style"] == ["step-by-step", "examples"]
+        mock_service.return_value.update_user.assert_called_once()
+
+
+def test_update_user_empty_body_success(test_app, test_user):
+    """Should handle empty update body (no fields to update)."""
+    test_app.dependency_overrides[get_current_user] = lambda: test_user
+    test_app.include_router(router, prefix="/user")
+    with patch("app.api.v1.routes.user.UserService") as mock_service:
+        mock_service.return_value.update_user.return_value = test_user
+        client = TestClient(test_app)
+        response = client.put("/user/update", json={})
+        assert response.status_code == 200
+        mock_service.return_value.update_user.assert_called_once()
+
+
+def test_update_user_requires_authentication(test_app):
+    """Should require authentication."""
+    test_app.include_router(router, prefix="/user")
+    client = TestClient(test_app)
+    response = client.put("/user/update", json={"name": "New Name"})
+    assert response.status_code in [401, 403]
+
+
+def test_update_user_rejects_email_field(test_app, test_user):
+    """Should ignore email field in update request (extra fields are ignored)."""
+    updated_user = User(
+        id="user123",
+        firebase_uid="firebase_uid_123",
+        name="New Name",
+        email="test@example.com",  # Email should remain unchanged
+        learning_style=[],
+    )
+    test_app.dependency_overrides[get_current_user] = lambda: test_user
+    test_app.include_router(router, prefix="/user")
+    with patch("app.api.v1.routes.user.UserService") as mock_service:
+        mock_service.return_value.update_user.return_value = updated_user
+        client = TestClient(test_app)
+        response = client.put(
+            "/user/update",
+            json={"name": "New Name", "email": "new@example.com"},
+        )
+        # Extra fields (email) should be ignored, request should succeed
+        assert response.status_code == 200
+        assert response.json()["name"] == "New Name"
+        # Verify that update_user was called (email field was ignored by Pydantic)
+        mock_service.return_value.update_user.assert_called_once()
+
+
+def test_update_user_rejects_picture_field(test_app, test_user):
+    """Should ignore picture field in update request (extra fields are ignored)."""
+    updated_user = User(
+        id="user123",
+        firebase_uid="firebase_uid_123",
+        name="New Name",
+        email="test@example.com",
+        picture=None,  # Picture should remain unchanged
+        learning_style=[],
+    )
+    test_app.dependency_overrides[get_current_user] = lambda: test_user
+    test_app.include_router(router, prefix="/user")
+    with patch("app.api.v1.routes.user.UserService") as mock_service:
+        mock_service.return_value.update_user.return_value = updated_user
+        client = TestClient(test_app)
+        response = client.put(
+            "/user/update",
+            json={"name": "New Name", "picture": "https://example.com/pic.jpg"},
+        )
+        # Extra fields (picture) should be ignored, request should succeed
+        assert response.status_code == 200
+        assert response.json()["name"] == "New Name"
+        # Verify that update_user was called (picture field was ignored by Pydantic)
+        mock_service.return_value.update_user.assert_called_once()

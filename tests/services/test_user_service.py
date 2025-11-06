@@ -249,6 +249,34 @@ class TestGetOrCreateUser:
 class TestUpdateUser:
     """Test updating user profile including learning_style."""
 
+    def test_update_user_name_success(self, mock_db, existing_user_data):
+        """Successfully update user's name."""
+        from app.models.user import UserUpdate
+
+        collection = MagicMock()
+        doc_ref = MagicMock()
+
+        # Mock existing user
+        existing_doc = FirestoreMocks.document_exists("user123", existing_user_data)
+        updated_data = existing_user_data.copy()
+        updated_data["name"] = "Updated Name"
+        updated_data["updated_at"] = datetime(2025, 1, 15, 10, 30, 0)
+        updated_doc = FirestoreMocks.document_exists("user123", updated_data)
+        doc_ref.get.side_effect = [existing_doc, updated_doc]
+
+        collection.document.return_value = doc_ref
+        mock_db.collection.return_value = collection
+        service = UserService(mock_db)
+
+        with patch("app.services.user_service.datetime") as mock_datetime:
+            mock_datetime.now.return_value = datetime(2025, 1, 15, 10, 30, 0)
+            user_update = UserUpdate(name="Updated Name")
+            updated_user = service.update_user("user123", user_update)
+
+            assert updated_user.name == "Updated Name"
+            assert updated_user.email == existing_user_data["email"]
+            doc_ref.update.assert_called_once()
+
     def test_update_user_learning_style_success(self, mock_db, existing_user_data):
         """Successfully update user's learning_style."""
         from app.models.user import UserUpdate
@@ -258,41 +286,123 @@ class TestUpdateUser:
 
         # Mock existing user
         existing_doc = FirestoreMocks.document_exists("user123", existing_user_data)
+        updated_data = existing_user_data.copy()
+        updated_data["learning_style"] = ["metaphors", "analogies", "examples"]
+        updated_data["updated_at"] = datetime(2025, 1, 15, 10, 30, 0)
+        updated_doc = FirestoreMocks.document_exists("user123", updated_data)
+        doc_ref.get.side_effect = [existing_doc, updated_doc]
+
+        collection.document.return_value = doc_ref
+        mock_db.collection.return_value = collection
+        service = UserService(mock_db)
+
+        with patch("app.services.user_service.datetime") as mock_datetime:
+            mock_datetime.now.return_value = datetime(2025, 1, 15, 10, 30, 0)
+            user_update = UserUpdate(learning_style=["metaphors", "analogies", "examples"])
+            updated_user = service.update_user("user123", user_update)
+
+            assert updated_user.learning_style == ["metaphors", "analogies", "examples"]
+            assert updated_user.name == existing_user_data["name"]
+            doc_ref.update.assert_called_once()
+
+    def test_update_user_learning_style_to_empty_list(self, mock_db, existing_user_data):
+        """Can update learning_style to empty list."""
+        from app.models.user import UserUpdate
+
+        collection = MagicMock()
+        doc_ref = MagicMock()
+
+        existing_doc = FirestoreMocks.document_exists("user123", existing_user_data)
+        updated_data = existing_user_data.copy()
+        updated_data["learning_style"] = []
+        updated_data["updated_at"] = datetime(2025, 1, 15, 10, 30, 0)
+        updated_doc = FirestoreMocks.document_exists("user123", updated_data)
+        doc_ref.get.side_effect = [existing_doc, updated_doc]
+
+        collection.document.return_value = doc_ref
+        mock_db.collection.return_value = collection
+        service = UserService(mock_db)
+
+        with patch("app.services.user_service.datetime") as mock_datetime:
+            mock_datetime.now.return_value = datetime(2025, 1, 15, 10, 30, 0)
+            user_update = UserUpdate(learning_style=[])
+            updated_user = service.update_user("user123", user_update)
+
+            assert updated_user.learning_style == []
+            doc_ref.update.assert_called_once()
+
+    def test_update_user_partial_with_name_and_learning_style(self, mock_db, existing_user_data):
+        """Can partially update user with both name and learning_style."""
+        from app.models.user import UserUpdate
+
+        collection = MagicMock()
+        doc_ref = MagicMock()
+
+        existing_doc = FirestoreMocks.document_exists("user123", existing_user_data)
+        updated_data = existing_user_data.copy()
+        updated_data["name"] = "Updated Name"
+        updated_data["learning_style"] = ["step-by-step"]
+        updated_data["updated_at"] = datetime(2025, 1, 15, 10, 30, 0)
+        updated_doc = FirestoreMocks.document_exists("user123", updated_data)
+        doc_ref.get.side_effect = [existing_doc, updated_doc]
+
+        collection.document.return_value = doc_ref
+        mock_db.collection.return_value = collection
+        service = UserService(mock_db)
+
+        with patch("app.services.user_service.datetime") as mock_datetime:
+            mock_datetime.now.return_value = datetime(2025, 1, 15, 10, 30, 0)
+            user_update = UserUpdate(
+                name="Updated Name",
+                learning_style=["step-by-step"],
+            )
+            updated_user = service.update_user("user123", user_update)
+
+            assert updated_user.name == "Updated Name"
+            assert updated_user.learning_style == ["step-by-step"]
+            doc_ref.update.assert_called_once()
+
+    def test_update_user_not_found_raises_404(self, mock_db):
+        """Update non-existent user raises 404."""
+        from app.models.user import UserUpdate
+
+        collection = MagicMock()
+        doc_ref = MagicMock()
+        doc = FirestoreMocks.document_not_found()
+        doc_ref.get.return_value = doc
+
+        collection.document.return_value = doc_ref
+        mock_db.collection.return_value = collection
+        service = UserService(mock_db)
+
+        user_update = UserUpdate(name="New Name")
+
+        with pytest.raises(HTTPException) as exc:
+            service.update_user("nonexistent", user_update)
+
+        assert exc.value.status_code == 404
+        assert "not found" in exc.value.detail
+
+    def test_update_user_with_empty_update_data(self, mock_db, existing_user_data):
+        """Update with all None fields doesn't update database."""
+        from app.models.user import UserUpdate
+
+        collection = MagicMock()
+        doc_ref = MagicMock()
+
+        existing_doc = FirestoreMocks.document_exists("user123", existing_user_data)
         doc_ref.get.side_effect = [existing_doc, existing_doc]
 
         collection.document.return_value = doc_ref
         mock_db.collection.return_value = collection
+        service = UserService(mock_db)
 
-        # Note: UserService doesn't have update_user method yet, but testing the pattern
-        # This test demonstrates how learning_style should be handled in updates
-        user_update = UserUpdate(learning_style=["metaphors", "analogies", "examples"])
+        user_update = UserUpdate()
+        updated_user = service.update_user("user123", user_update)
 
-        assert user_update.learning_style == ["metaphors", "analogies", "examples"]
-        assert user_update.name is None
-        assert user_update.email is None
-
-    def test_update_user_learning_style_to_empty_list(self):
-        """Can update learning_style to empty list."""
-        from app.models.user import UserUpdate
-
-        user_update = UserUpdate(learning_style=[])
-
-        assert user_update.learning_style == []
-        assert user_update.name is None
-
-    def test_update_user_partial_with_learning_style(self):
-        """Can partially update user with learning_style."""
-        from app.models.user import UserUpdate
-
-        user_update = UserUpdate(
-            name="Updated Name",
-            learning_style=["step-by-step"],
-        )
-
-        assert user_update.name == "Updated Name"
-        assert user_update.learning_style == ["step-by-step"]
-        assert user_update.email is None
-        assert user_update.picture is None
+        # Should return user without updating
+        assert updated_user.id == "user123"
+        doc_ref.update.assert_not_called()
 
 
 # ============================================================================

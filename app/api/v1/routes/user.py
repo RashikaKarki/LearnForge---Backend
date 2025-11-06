@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from app.dependencies.auth import get_current_user
 from app.initializers.firestore import get_db
-from app.models.user import User, UserEnrolledMission
+from app.models.user import User, UserEnrolledMission, UserUpdate
 from app.services.user_service import UserService
 
 
@@ -46,3 +46,22 @@ async def get_user_enrolled_missions(
     """
     user_service = UserService(db)
     return user_service.get_enrolled_missions(current_user.id, limit=limit)
+
+
+@router.put("/update", response_model=User)
+async def update_user(
+    user_update: UserUpdate,
+    db=Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update current user profile information.
+
+    Args:
+        user_update: User update data (name and/or learning_style)
+
+    Returns:
+        Updated User object
+    """
+    user_service = UserService(db)
+    return user_service.update_user(current_user.id, user_update)

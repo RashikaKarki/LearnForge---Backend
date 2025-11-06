@@ -239,15 +239,12 @@ def test_create_without_optional_fields_user_create():
 def test_all_fields_optional_user_update():
     update_data = UserUpdate()
     assert update_data.name is None
-    assert update_data.email is None
-    assert update_data.picture is None
     assert update_data.learning_style is None
 
 
 def test_partial_update_name_only_user_update():
     update_data = UserUpdate(name="New Name")
     assert update_data.name == "New Name"
-    assert update_data.email is None
     assert update_data.learning_style is None
 
 
@@ -255,24 +252,18 @@ def test_update_learning_style_user_update():
     update_data = UserUpdate(learning_style=["examples", "metaphors", "analogies"])
     assert update_data.learning_style == ["examples", "metaphors", "analogies"]
     assert update_data.name is None
-    assert update_data.email is None
 
 
 def test_update_learning_style_to_empty_list_user_update():
     update_data = UserUpdate(learning_style=[])
     assert update_data.learning_style == []
     assert update_data.name is None
-    assert update_data.email is None
 
 
 def test_update_all_fields_including_learning_style_user_update():
     update_data = UserUpdate(
         name="Updated Name",
-        email="updated@example.com",
-        picture="https://example.com/new-pic.jpg",
         learning_style=["step-by-step", "examples"],
     )
     assert update_data.name == "Updated Name"
-    assert update_data.email == "updated@example.com"
-    assert str(update_data.picture) == "https://example.com/new-pic.jpg"
     assert update_data.learning_style == ["step-by-step", "examples"]

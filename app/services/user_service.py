@@ -9,6 +9,7 @@ from app.models.user import (
     UserEnrolledMission,
     UserEnrolledMissionCreate,
     UserEnrolledMissionUpdate,
+    UserUpdate,
 )
 from app.utils.firestore_exception import handle_firestore_exceptions
 
@@ -186,6 +187,29 @@ class UserService:
         return {
             "message": f"Enrolled mission '{mission_id}' deleted successfully for user '{user_id}'."
         }
+
+    @handle_firestore_exceptions
+    def update_user(self, user_id: str, data: UserUpdate) -> User:
+        """Update user profile information."""
+        user_ref = self.collection.document(user_id)
+
+        doc = user_ref.get()
+        if not doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID '{user_id}' not found.",
+            )
+
+        # Only include non-None fields
+        update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+
+        if update_data:
+            update_data["updated_at"] = datetime.now()
+            user_ref.update(update_data)
+
+        # Fetch and return updated document
+        updated_doc = user_ref.get()
+        return User(**updated_doc.to_dict())
 
     @handle_firestore_exceptions
     def get_first_user(self) -> User | None:

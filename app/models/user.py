@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import AnyUrl, BaseModel, EmailStr, Field
+from pydantic import AnyUrl, BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserEnrolledMission(BaseModel):
@@ -86,7 +86,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     name: str | None = None
-    email: EmailStr | None = None
-    picture: AnyUrl | None = None
     learning_style: list[str] | None = None
