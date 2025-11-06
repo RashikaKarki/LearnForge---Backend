@@ -63,9 +63,9 @@ deploy: ## Deploy to Google Cloud Run
 	@echo "Service: $(CLOUD_RUN_SERVICE)"
 	./deploy-cloud-run.sh
 
-format: ## Format code with black and isort
+format:
+	poetry run ruff check . --fix
 	poetry run black .
-	poetry run isort .
 
 lint: ## Lint code with flake8
 	poetry run flake8 app/ tests/
