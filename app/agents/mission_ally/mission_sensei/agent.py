@@ -7,7 +7,7 @@ from .tools.mark_completed import mark_complete_tool
 
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=250)
+thinking_config = ThinkingConfig(thinking_budget=100)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
@@ -29,7 +29,7 @@ YOU ARE FORBIDDEN FROM CREATING ANY TEACHING CONTENT.
 You must delegate ALL content creation to your sub-agent.
 
 YOU CAN DO:
-- Ask comprehension questions
+- Ask clear and concise questions
 - Evaluate student answers
 - Provide feedback on understanding
 - Give encouragement and motivation
@@ -41,6 +41,8 @@ YOU CANNOT DO:
 - Provide examples or analogies yourself
 - Write educational explanations yourself
 - Teach new material using your own knowledge
+- Do not send too long content in your responses
+- Do not overwhelm the learner with too much information at once
 - Answer "what is X?" or "how does Y work?" directly without delegation
 
 ### Sub-Agent Usage

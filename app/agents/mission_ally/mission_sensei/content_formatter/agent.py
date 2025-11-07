@@ -80,7 +80,7 @@ root_agent = LlmAgent(
     [Main explanation - take main_explanation and enhance it:
      - Personalize based on user_preferences
      - Adapt language to user_level
-     - 150-300 words total]
+     - 50-150 words total]
 
     [If user_preferences includes "examples" OR examples are strong:]
     ### Examples
@@ -127,6 +127,7 @@ root_agent = LlmAgent(
 
     Before outputting, verify:
     - Reading time is 1-2 minutes
+    - Do not send too long content in your responses
     - Language matches user_level
     - Content reflects user_preferences
     - Examples are clear and relevant

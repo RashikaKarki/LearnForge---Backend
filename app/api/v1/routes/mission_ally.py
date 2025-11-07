@@ -783,7 +783,7 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                         continue
             except StopIteration:
                 # Normal end of generator
-                logger.debug(
+                logger.error(
                     f"[process_agent_flow] Event generator exhausted normally for session {session_id}"
                 )
             except Exception as iteration_error:
@@ -867,7 +867,7 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                 exc_info=True,
             )
 
-        session_after = context.adk_session
+        session_after = await context.refresh_adk_session(session_id)
 
         # Handle mission completion if wrapper was transferred
         if wrapper_transferred:

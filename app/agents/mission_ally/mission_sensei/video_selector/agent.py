@@ -7,7 +7,7 @@ from .tools.store_video_selection import store_video_selection_tool
 
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=250)
+thinking_config = ThinkingConfig(thinking_budget=100)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(

@@ -28,7 +28,7 @@ start_session_tool = FunctionTool(func=start_session_with_pathfinder)
 create_mission_wrapper_tool = FunctionTool(func=create_mission_and_notify)
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=250)
+thinking_config = ThinkingConfig(thinking_budget=100)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(

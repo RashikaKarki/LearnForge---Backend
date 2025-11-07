@@ -7,7 +7,7 @@ from app.agents.search_agent.agent import search_agent
 
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=250)
+thinking_config = ThinkingConfig(thinking_budget=100)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 
