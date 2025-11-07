@@ -294,7 +294,7 @@ async def process_agent_flow(
 
             # Send text content to client (skip internal mission_curator messages)
             if hasattr(event, "content") and event.content:
-                if hasattr(event.content, "parts") and event.content.parts:
+                if hasattr(event.content, "parts"):
                     for part in event.content.parts:
                         if (
                             hasattr(part, "text")

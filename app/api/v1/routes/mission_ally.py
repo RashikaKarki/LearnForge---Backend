@@ -600,12 +600,7 @@ async def _handle_agent_transfer(event, session_id: str, manager: ConnectionMana
 
 
 async def _send_text_content(event, session_id: str, manager: ConnectionManager):
-    if (
-        not hasattr(event, "content")
-        or not event.content
-        or not hasattr(event.content, "parts")
-        or not event.content.parts
-    ):
+    if not hasattr(event, "content") or not event.content or not hasattr(event.content, "parts"):
         logger.debug(
             f"[_send_text_content] Event has no content/parts for session {session_id}, skipping"
         )
