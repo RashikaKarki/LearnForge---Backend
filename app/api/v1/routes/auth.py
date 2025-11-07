@@ -4,7 +4,6 @@ from time import time
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from firebase_admin import auth
 from pydantic import BaseModel
-from starlette.datastructures import SameSite
 
 
 router = APIRouter()
@@ -51,7 +50,7 @@ async def create_session(request: CreateSessionRequest, response: Response):
             value=session_cookie,
             httponly=True,
             secure=True,
-            samesite=SameSite.none,  # Required for cross-site cookies on mobile
+            samesite="none",
             max_age=SESSION_MAX_AGE_SECONDS,
             path="/",
         )
@@ -92,7 +91,7 @@ async def logout(request: Request, response: Response):
         path="/",
         httponly=True,
         secure=True,
-        samesite=SameSite.none,  # Required for cross-site cookies on mobile
+        samesite="none",
     )
 
     return SessionResponse(message="Logged out successfully", uid=None)
@@ -120,7 +119,7 @@ async def refresh_session(request: Request, response: Response):
             value=new_session_cookie,
             httponly=True,
             secure=True,
-            samesite=SameSite.none,  # Required for cross-site cookies on mobile
+            samesite="none",
             max_age=SESSION_MAX_AGE_SECONDS,
             path="/",
         )

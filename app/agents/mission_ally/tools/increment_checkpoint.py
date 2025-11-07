@@ -14,6 +14,14 @@ def increment_checkpoint(tool_context: ToolContext) -> str:
         checkpoints = mission_details.get("byte_size_checkpoints", [])
     elif hasattr(mission_details, "byte_size_checkpoints"):
         checkpoints = mission_details.byte_size_checkpoints
+    elif isinstance(mission_details, (list | tuple)) and len(mission_details) > 0:
+        first_item = mission_details[0]
+        if isinstance(first_item, dict):
+            checkpoints = first_item.get("byte_size_checkpoints", [])
+        elif hasattr(first_item, "byte_size_checkpoints"):
+            checkpoints = first_item.byte_size_checkpoints
+        else:
+            return "Error: Mission details format is unrecognized."
     else:
         return "Error: Mission details missing byte_size_checkpoints."
 
