@@ -53,156 +53,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# ============================================================================
-# Error Handling Utilities
-# ============================================================================
-
-
 def _sanitize_error_message(error_msg: str) -> str:
     """
     Sanitize error messages to prevent leaking sensitive information like database URLs.
     Returns a safe, user-friendly error message.
     """
-    sanitized = error_msg
-
-    # Check for database URL patterns
-    if "postgresql://" in sanitized or "postgres://" in sanitized:
-        if "module not found" in sanitized.lower() or "not found for URL" in sanitized.lower():
-            return "Database driver not found"
+    if "postgresql://" in error_msg or "postgres://" in error_msg:
         return "Database connection error"
 
-    # Check for other database-related errors
-    if "DATABASE_URL" in sanitized:
-        return "Database configuration error"
-
-    if "postgres" in sanitized.lower() and "database" in sanitized.lower():
-        if "module" in sanitized.lower():
-            return "Database driver not found"
-        return "Database configuration error"
-
-    if (
-        "postgres" in sanitized.lower() or "database" in sanitized.lower()
-    ) and "module" in sanitized.lower():
-        return "Database driver not found"
-
-    if "No module named" in sanitized or "ImportError" in sanitized:
-        if "psycopg2" in sanitized.lower() or "asyncpg" in sanitized.lower():
-            return "Database driver not found"
-        return "Database driver not found"
-
-    return sanitized
-
-
-def _clean_state_for_adk(state: dict) -> dict:
-    """
-    Clean and validate state dictionary to ensure it's safe for ADK/Genai API.
-    Removes None values, ensures proper serialization, and validates data types.
-    Also handles large text fields that might cause issues.
-    """
-    from datetime import datetime
-    import json
-
-    # Maximum length for large text fields to prevent API issues
-    MAX_TEXT_FIELD_LENGTH = 50000  # 50KB per field
-
-    def truncate_large_text(text: str, max_length: int = MAX_TEXT_FIELD_LENGTH) -> str:
-        """Truncate very long text fields to prevent API issues"""
-        if isinstance(text, str) and len(text) > max_length:
-            logger.warning(
-                f"[_clean_state_for_adk] Truncating large text field from {len(text)} to {max_length} characters"
-            )
-            return text[:max_length] + "... [truncated]"
-        return text
-
-    def clean_value(value, key: str = None):
-        """Recursively clean values in the state"""
-        if value is None:
-            return None
-        elif isinstance(value, datetime):
-            # Convert datetime to ISO format string
-            return value.isoformat()
-        elif isinstance(value, dict):
-            # Recursively clean dictionaries
-            cleaned = {}
-            for k, v in value.items():
-                # Skip None values to avoid API issues
-                if v is None:
-                    continue
-                cleaned_val = clean_value(v, k)
-                # Only include non-None values
-                if cleaned_val is not None:
-                    cleaned[k] = cleaned_val
-            return cleaned
-        elif isinstance(value, list):
-            # Recursively clean lists, but keep empty lists
-            cleaned_list = [clean_value(item, key) for item in value]
-            # Filter out None values but keep the list structure
-            return [item for item in cleaned_list if item is not None]
-        elif isinstance(value, str):
-            # Truncate very long strings, especially for known large fields
-            if (
-                key in ("composed_content", "description", "main_explanation")
-                and len(value) > MAX_TEXT_FIELD_LENGTH
-            ):
-                return truncate_large_text(value, MAX_TEXT_FIELD_LENGTH)
-            # Ensure string doesn't contain problematic characters for string formatting
-            # Replace any unescaped braces that might break string interpolation
-            # But be careful - we don't want to break valid markdown
-            return value
-        elif isinstance(value, int | float | bool):
-            return value
-        elif hasattr(value, "__dict__"):
-            # Handle objects with __dict__ by converting to dict
-            return clean_value(value.__dict__, key)
-        else:
-            # For any other type, convert to string
-            try:
-                result = str(value)
-                # Truncate if it's too long
-                if len(result) > MAX_TEXT_FIELD_LENGTH:
-                    return truncate_large_text(result, MAX_TEXT_FIELD_LENGTH)
-                return result
-            except Exception:
-                return None
-
-    try:
-        cleaned_state = {}
-        for k, v in state.items():
-            cleaned_val = clean_value(v, k)
-            if cleaned_val is not None:
-                cleaned_state[k] = cleaned_val
-
-        # Validate that the state can be JSON serialized
-        json_str = json.dumps(cleaned_state)
-        # Check total size (Genai API has limits)
-        if len(json_str) > 1000000:  # 1MB limit as safety check
-            logger.warning(
-                f"[_clean_state_for_adk] State is very large ({len(json_str)} bytes). "
-                f"Consider reducing state size. Keys: {list(cleaned_state.keys())}"
-            )
-            # If state is too large, try to reduce large text fields further
-            for key in ["composed_content", "description", "main_explanation"]:
-                if key in cleaned_state and isinstance(cleaned_state[key], str):
-                    if len(cleaned_state[key]) > 20000:
-                        cleaned_state[key] = (
-                            cleaned_state[key][:20000] + "... [truncated due to size]"
-                        )
-                        logger.warning(f"[_clean_state_for_adk] Further truncated {key} field")
-
-        return cleaned_state
-    except (TypeError, ValueError, json.JSONEncodeError) as e:
-        logger.error(
-            f"[_clean_state_for_adk] Failed to clean state: {e}, "
-            f"state_keys={list(state.keys()) if isinstance(state, dict) else 'not_dict'}",
-            exc_info=True,
-        )
-        # Return a minimal safe state if cleaning fails
-        return {
-            "mission_id": str(state.get("mission_id", "")) if state.get("mission_id") else "",
-            "current_checkpoint_index": int(state.get("current_checkpoint_index", -1)),
-            "current_checkpoint_goal": str(state.get("current_checkpoint_goal", "")),
-            "completed_checkpoints": list(state.get("completed_checkpoints", [])),
-        }
+    return error_msg
 
 
 def _handle_http_exception(e: Exception, resource_name: str, resource_id: str) -> ValueError:
@@ -256,38 +115,6 @@ async def _close_websocket_with_error(
             await websocket.close(code=close_code, reason=safe_reason)
     except Exception:
         pass
-
-
-def _get_mission_id_from_session_state(session_state: dict) -> str | None:
-    """
-    Extract mission_id from session state dictionary.
-    Handles both dict and object representations.
-    """
-    enrolled_mission = session_state.get("enrolled_mission")
-    if enrolled_mission:
-        if isinstance(enrolled_mission, dict):
-            mission_id = enrolled_mission.get("mission_id")
-        elif hasattr(enrolled_mission, "mission_id"):
-            mission_id = enrolled_mission.mission_id
-        else:
-            mission_id = None
-
-        if mission_id:
-            return mission_id
-
-    mission_details = session_state.get("mission_details")
-    if mission_details:
-        if isinstance(mission_details, dict):
-            return mission_details.get("id")
-        elif hasattr(mission_details, "id"):
-            return mission_details.id
-
-    return None
-
-
-# ============================================================================
-# Session Context (Cache Layer)
-# ============================================================================
 
 
 class SessionContext:
@@ -403,20 +230,9 @@ class SessionContext:
                 else self._enrolled_mission.byte_size_checkpoints[starting_index]
             ),
             "completed_checkpoints": self._enrolled_mission.completed_checkpoints or [],
+            "content_search_result": "",
+            "video_selection_result": {},
         }
-
-        # Clean state to ensure it's safe for ADK/Genai API
-        # This validates JSON serialization and handles edge cases
-        try:
-            initial_state = _clean_state_for_adk(initial_state)
-            logger.debug(
-                f"[SessionContext.initialize] State cleaned successfully, "
-                f"keys={list(initial_state.keys())}"
-            )
-        except Exception as e:
-            logger.error(f"[SessionContext.initialize] Failed to clean state: {e}", exc_info=True)
-            # Continue with original state if cleaning fails (model_dump should handle it)
-
         self._initialized = True
         return initial_state, was_started
 
@@ -587,9 +403,9 @@ class ConnectionManager:
                     self._session_service = DatabaseSessionService(
                         db_url=db_url,
                         creator=self._create_cloud_sql_connection,
-                        pool_size=10,  # Increased from 5 to handle more concurrent requests
-                        max_overflow=5,  # Increased from 2 to handle bursts
-                        pool_timeout=60,  # Increased from 30 to reduce timeout errors
+                        pool_size=10,
+                        max_overflow=5,
+                        pool_timeout=60,
                         pool_recycle=1800,
                     )
                     logger.info(
@@ -1045,204 +861,13 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                 ) from e
             raise
         except Exception as runner_error:
-            # Log the full error for debugging
-            error_type = type(runner_error).__name__
-            error_str = str(runner_error).lower()
-
             logger.error(
                 f"[process_agent_flow] Runner error for session {session_id}: {runner_error}, "
                 f"error_type={error_type}",
                 exc_info=True,
             )
 
-            # Check for Genai API errors
-            if "clienterror" in error_str or "invalid_argument" in error_str or "400" in error_str:
-                # Extract detailed error information
-                error_details = {
-                    "error_type": error_type,
-                    "error_message": str(runner_error),
-                    "session_id": session_id,
-                    "user_id": context.user_id if context else None,
-                }
-
-                # Try to extract more details from ClientError specifically
-                if ClientError and isinstance(runner_error, ClientError):
-                    error_details["is_client_error"] = True
-                    # Extract status_code
-                    if hasattr(runner_error, "status_code"):
-                        error_details["status_code"] = runner_error.status_code
-                    # Extract response_json (this contains the error details)
-                    if hasattr(runner_error, "response_json"):
-                        error_details["response_json"] = runner_error.response_json
-                        # Extract nested error message if available
-                        if isinstance(runner_error.response_json, dict):
-                            if "error" in runner_error.response_json:
-                                error_info = runner_error.response_json["error"]
-                                if isinstance(error_info, dict):
-                                    error_details["error_code"] = error_info.get("code")
-                                    error_details["error_message"] = error_info.get("message")
-                                    error_details["error_status"] = error_info.get("status")
-                    # Try to get response object details
-                    if hasattr(runner_error, "response"):
-                        error_details["has_response"] = True
-                        try:
-                            if hasattr(runner_error.response, "json"):
-                                response_json = runner_error.response.json()
-                                error_details["response_json"] = response_json
-                                # Extract nested error if not already extracted
-                                if "error_code" not in error_details and isinstance(
-                                    response_json, dict
-                                ):
-                                    if "error" in response_json:
-                                        error_info = response_json["error"]
-                                        if isinstance(error_info, dict):
-                                            error_details["error_code"] = error_info.get("code")
-                                            error_details["error_message"] = error_info.get(
-                                                "message"
-                                            )
-                                            error_details["error_status"] = error_info.get("status")
-                            if hasattr(runner_error.response, "text"):
-                                response_text = runner_error.response.text
-                                # Truncate if too long
-                                if len(response_text) > 1000:
-                                    error_details["response_text"] = (
-                                        response_text[:1000] + "... [truncated]"
-                                    )
-                                else:
-                                    error_details["response_text"] = response_text
-                        except Exception as e:
-                            error_details["response_parse_error"] = str(e)
-                    # Also check exception args for error details
-                    if hasattr(runner_error, "args") and runner_error.args:
-                        error_details["exception_args"] = str(runner_error.args)
-                else:
-                    # Try to extract details from generic exception
-                    if hasattr(runner_error, "status_code"):
-                        error_details["status_code"] = runner_error.status_code
-                    if hasattr(runner_error, "response"):
-                        error_details["has_response"] = True
-                        try:
-                            if hasattr(runner_error.response, "json"):
-                                error_details["response_json"] = runner_error.response.json()
-                            if hasattr(runner_error.response, "text"):
-                                response_text = runner_error.response.text
-                                # Truncate if too long
-                                if len(response_text) > 1000:
-                                    error_details["response_text"] = (
-                                        response_text[:1000] + "... [truncated]"
-                                    )
-                                else:
-                                    error_details["response_text"] = response_text
-                        except Exception as e:
-                            error_details["response_parse_error"] = str(e)
-
-                    # Try to get args from exception
-                    if hasattr(runner_error, "args") and runner_error.args:
-                        error_details["exception_args"] = str(runner_error.args)
-
-                # Log state information for debugging
-                if context and context.adk_session and context.adk_session.state:
-                    state = context.adk_session.state
-                    if isinstance(state, dict):
-                        state_keys = list(state.keys())
-                        error_details["state_keys"] = state_keys
-                        error_details["state_key_count"] = len(state_keys)
-
-                        # Log sizes of key fields
-                        field_sizes = {}
-                        for key in [
-                            "composed_content",
-                            "description",
-                            "main_explanation",
-                            "user_profile",
-                            "mission_details",
-                            "enrolled_mission",
-                        ]:
-                            if key in state:
-                                value = state[key]
-                                if isinstance(value, str):
-                                    field_sizes[key] = len(value)
-                                elif isinstance(value, dict):
-                                    try:
-                                        import json
-
-                                        field_sizes[key] = len(json.dumps(value))
-                                    except Exception:
-                                        field_sizes[key] = "unknown"
-                                else:
-                                    field_sizes[key] = f"type: {type(value).__name__}"
-                        error_details["field_sizes"] = field_sizes
-
-                        # Log a sample of large fields (first 200 chars)
-                        for key in ["composed_content", "description", "main_explanation"]:
-                            if (
-                                key in state
-                                and isinstance(state[key], str)
-                                and len(state[key]) > 200
-                            ):
-                                error_details[f"{key}_sample"] = state[key][:200] + "..."
-                    else:
-                        error_details["state_type"] = type(state).__name__
-
-                # Log the full error details
-                logger.error(
-                    f"[process_agent_flow] Genai API error (400 INVALID_ARGUMENT) for session {session_id}. "
-                    f"Detailed error information: {error_details}",
-                    exc_info=True,
-                )
-
-                # Also log as JSON for easier parsing
-                try:
-                    import json
-
-                    logger.error(
-                        f"[process_agent_flow] Genai API error details (JSON): {json.dumps(error_details, indent=2, default=str)}"
-                    )
-                except Exception as json_error:
-                    logger.error(
-                        f"[process_agent_flow] Failed to serialize error details to JSON: {json_error}"
-                    )
-
-                # Provide more specific error message based on error details
-                error_message = "Invalid request format. This may be due to corrupted session data."
-                if "error_code" in error_details:
-                    error_code = error_details.get("error_code")
-                    error_msg = error_details.get("error_message", "")
-                    if error_code == 400 and "invalid argument" in error_msg.lower():
-                        error_message = (
-                            "The request contains invalid data. This may be due to: "
-                            "session state being too large, invalid data format, or corrupted session data. "
-                            "Please try refreshing your session or starting a new one."
-                        )
-
-                logger.error(
-                    f"[process_agent_flow] Raising ValueError for ClientError: {error_message}"
-                )
-                raise ValueError(error_message) from runner_error
-            elif "timeout" in error_str or "timed out" in error_str:
-                logger.warning(
-                    f"[process_agent_flow] Timeout error detected for session {session_id}"
-                )
-                raise ValueError(
-                    "Request timed out. The agent is taking longer than expected. Please try again."
-                ) from runner_error
-            elif "connection" in error_str or "pool" in error_str:
-                logger.warning(
-                    f"[process_agent_flow] Database connection error detected for session {session_id}"
-                )
-                raise ValueError(
-                    "Database connection error. Please try again in a moment."
-                ) from runner_error
-            raise
-
-        # Refresh session to get latest state
-        logger.debug(f"[process_agent_flow] Refreshing ADK session for session {session_id}")
-        await context.refresh_adk_session(session_id)
         session_after = context.adk_session
-        logger.debug(
-            f"[process_agent_flow] Session refreshed, state exists: "
-            f"{session_after.state is not None if session_after else False}"
-        )
 
         # Handle mission completion if wrapper was transferred
         if wrapper_transferred:

@@ -5,7 +5,7 @@ from app.models.mission import MissionCreate
 
 root_agent = LlmAgent(
     name="mission_curator",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     output_schema=MissionCreate,
     description="Agent that formats Polaris', The pathfinder, collected learning goal information into a structured mission outline.",
     instruction=(

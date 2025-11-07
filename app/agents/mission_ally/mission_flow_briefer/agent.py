@@ -5,7 +5,7 @@ from .tools.update_checkpoint_goal import update_checkpoint_goal_tool
 
 root_agent = LlmAgent(
     name="lumina_flow_briefer",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     description="Agent that provides checkpoint briefings and confirms learning objectives before teaching begins.",
     instruction="""
 You are Lumina's Briefer - you set the stage before each checkpoint. Always speak as "I" (Lumina).

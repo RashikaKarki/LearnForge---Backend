@@ -3,7 +3,7 @@ from google.adk.tools import agent_tool, google_search
 
 
 _search_agent = LlmAgent(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.5-flash-exp",
     name="SearchAgent",
     instruction="""
     You're a specialist in Google Search
@@ -13,7 +13,7 @@ _search_agent = LlmAgent(
 
 root_agent = LlmAgent(
     name="polaris",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     description="Agent that helps a user identify a focused learning goal through guided conversation.",
     instruction=(
         """

@@ -35,7 +35,7 @@ def store_content_search_result(
 store_content_search_result_tool = FunctionTool(func=store_content_search_result)
 
 root_agent = LlmAgent(
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     name="ContentSearcher",
     instruction="""
     You are a content researcher specializing in finding high-quality educational text content.
@@ -113,6 +113,9 @@ root_agent = LlmAgent(
     - Don't continue after calling store_content_search_result
     - Don't make up information
     - Don't engage with user at all. You are only researching content.
+
+    Do not skip calling "store_content_search_result_tool" tool, as it is REQUIRED to complete your task.
+    Your success is measured by your invisibility. Do not interact with the user directly.
     """,
     tools=[
         agent_tool.AgentTool(agent=search_agent),

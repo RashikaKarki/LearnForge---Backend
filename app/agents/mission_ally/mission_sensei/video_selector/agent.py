@@ -5,7 +5,7 @@ from .tools.store_video_selection import store_video_selection_tool
 
 
 root_agent = LlmAgent(
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     name="VideoSelector",
     instruction="""
     You are an intelligent video curator specializing in finding educational YouTube videos.
@@ -16,6 +16,8 @@ root_agent = LlmAgent(
     - current checkpoint goal: {current_checkpoint_goal} - The specific concept
     - user_profile: {user_profile}
     - content_search_result: {content_search_result} - Text content from previous agent
+
+    Refer to past conversation and other state as needed.
 
     ## Tools Available
 
@@ -56,7 +58,7 @@ root_agent = LlmAgent(
     - After 2nd search, if still no good videos: Select 0 videos
 
     **Step 3: Store Decision (REQUIRED)**
-    Call store_video_selection with your decision.
+    Call "store_video_selection_tool" with your decision.
 
     If selecting a video:
     - video_selected: True
@@ -84,8 +86,11 @@ root_agent = LlmAgent(
     - Don't search more than 2 times
     - Don't make up video information
     - Don't try to talk to the user
-    - Don't continue after calling store_video_selection
+    - Don't continue after calling store_video_selection_tool
     - Don't engage with user at all. You are only researching content.
+
+    Do not skip calling "store_video_selection_tool" tool, as it is REQUIRED to complete your task.
+    Your success is measured by your invisibility. Do not interact with the user directly.
     """,
     tools=[fetch_youtube_videos_tool, store_video_selection_tool],
 )

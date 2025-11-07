@@ -10,7 +10,7 @@ from .tools.increment_checkpoint import increment_checkpoint_tool
 
 root_agent = LlmAgent(
     name="lumina_orchestrator",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash-lite",
     description="Central intelligence that orchestrates Lumina's learning flow through sequential checkpoints.",
     instruction="""
 You are Lumina's Orchestrator - you manage the learning journey through delegation and tool calls.

@@ -209,7 +209,7 @@ def create_agent():
     """Create the root agent"""
     
     @client.agentic.agent(
-        model="gemini-2.0-flash-exp",
+        model="gemini-2.5-flash",
         system_instruction="""
         You are a helpful AI assistant with a great memory.
         
@@ -490,7 +490,7 @@ def search_web(query: str) -> str:
 
 # Add to agent
 @client.agentic.agent(
-    model="gemini-2.0-flash-exp",
+    model="gemini-2.5-flash",
     system_instruction="...",
     tools=[search_web],  # Add tools here
 )

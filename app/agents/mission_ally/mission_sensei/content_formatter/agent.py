@@ -2,7 +2,7 @@ from google.adk.agents import LlmAgent
 
 
 root_agent = LlmAgent(
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     name="ContentFormatter",
     output_key="composed_content",
     instruction="""
@@ -12,6 +12,8 @@ root_agent = LlmAgent(
     - user_profile: {user_profile}
     - content_search_result: {content_search_result} - Content from ContentSearcher
     - video_selection_result: {video_selection_result} - Video from VideoSelector
+
+    Refer to past conversation and other state as needed.
 
     ## Tools Available
 
@@ -25,7 +27,7 @@ root_agent = LlmAgent(
 
     **Extract Data:**
     - From content_search_result: main_explanation, examples, key_points, concept_name
-    - From video_selection_result: video_selected, video details (if selected)
+    - From video_selection_result: video_selected, video details (if selected) (Never hallucinate video info, if not provided, just skip)
     - From inputs: user_preferences, user_level
 
     **Personalize Based on user_preferences:**

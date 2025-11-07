@@ -3,7 +3,7 @@ from google.adk.agents import LlmAgent
 
 root_agent = LlmAgent(
     name="lumina_wrapper",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     description=("Agent that wraps up the learning mission and provides final feedback."),
     instruction=(
         """

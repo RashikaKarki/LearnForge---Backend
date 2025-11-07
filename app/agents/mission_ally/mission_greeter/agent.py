@@ -18,7 +18,7 @@ transfer_to_orchestrator_tool = FunctionTool(func=transfer_to_orchestrator)
 
 root_agent = LlmAgent(
     name="lumina_greeter",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     description=(
         "Agent that welcomes users to their learning mission and sets the tone for the experience."
     ),

@@ -6,7 +6,7 @@ from app.agents.search_agent.agent import search_agent
 
 root_agent = LlmAgent(
     name="lumina_help_desk",
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     description=("Agent that handles ad-hoc questions outside the current mission context."),
     instruction=(
         """
