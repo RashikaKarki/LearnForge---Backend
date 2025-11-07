@@ -5,7 +5,7 @@ from app.models.mission import MissionCreate
 
 root_agent = LlmAgent(
     name="mission_curator",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-pro",
     output_schema=MissionCreate,
     description="Agent that formats Polaris', The pathfinder, collected learning goal information into a structured mission outline.",
     instruction=(
@@ -56,6 +56,8 @@ Example byte_size_checkpoints format:
   "File Handling and Modules",
   "Final Project: Building a Simple Application"
 ]
+
+You need to produce the final MissionCreate JSON based on the above instructions. Return structured JSON only.
 
 END OF SYSTEM INSTRUCTIONS"""
     ),
