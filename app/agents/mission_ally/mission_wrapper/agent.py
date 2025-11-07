@@ -1,5 +1,11 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
 
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=0)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     name="lumina_wrapper",
@@ -27,4 +33,5 @@ root_agent = LlmAgent(
             Do not engage in any conversation beyond the wrapping up and feedback.
         """
     ),
+    planner=planner,
 )

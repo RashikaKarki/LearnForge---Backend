@@ -1,4 +1,6 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
 
 from .mission_flow_briefer.agent import root_agent as flow_briefer_agent
 from .mission_greeter.agent import root_agent as greeter_agent
@@ -8,9 +10,13 @@ from .mission_wrapper.agent import root_agent as wrapper_agent
 from .tools.increment_checkpoint import increment_checkpoint_tool
 
 
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=0)
+planner = BuiltInPlanner(thinking_config=thinking_config)
+
 root_agent = LlmAgent(
     name="lumina_orchestrator",
-    model="gemini-2.5-flash-lite",
+    model="gemini-2.5-flash",
     description="Central intelligence that orchestrates Lumina's learning flow through sequential checkpoints.",
     instruction="""
 You are Lumina's Orchestrator - you manage the learning journey through delegation and tool calls.
@@ -242,4 +248,5 @@ Your success is measured by your invisibility.
         mission_sensei_agent,
         mission_help_desk_agent,
     ],
+    planner=planner,
 )

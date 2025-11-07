@@ -1,8 +1,14 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
 
 from .content_composer.agent import root_agent as content_composer
 from .tools.mark_completed import mark_complete_tool
 
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=250)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     name="lumina_sensei",
@@ -227,4 +233,5 @@ To the user, you ARE the teacher. Content flows through you seamlessly via deleg
 """,
     sub_agents=[content_composer],
     tools=[mark_complete_tool],
+    planner=planner,
 )

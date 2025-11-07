@@ -1,7 +1,13 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
 
 from .tools.update_checkpoint_goal import update_checkpoint_goal_tool
 
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=0)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     name="lumina_flow_briefer",
@@ -135,4 +141,5 @@ Only stick to you job here which is to brief and confirm, do not teach or create
 6. STOP (hand over to lumina_orchestrator)
 """,
     tools=[update_checkpoint_goal_tool],
+    planner=planner,
 )

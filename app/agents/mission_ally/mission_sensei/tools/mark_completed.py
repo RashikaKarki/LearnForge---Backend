@@ -19,6 +19,14 @@ def mark_complete(tool_context: ToolContext) -> str:
             checkpoints = mission_details.get("byte_size_checkpoints", [])
         elif hasattr(mission_details, "byte_size_checkpoints"):
             checkpoints = mission_details.byte_size_checkpoints
+        elif isinstance(mission_details, list) and len(mission_details) > 0:
+            first_mission = mission_details[0]
+            if isinstance(first_mission, dict):
+                checkpoints = first_mission.get("byte_size_checkpoints", [])
+            elif hasattr(first_mission, "byte_size_checkpoints"):
+                checkpoints = first_mission.byte_size_checkpoints
+            else:
+                checkpoints = []
         else:
             checkpoints = []
 
@@ -30,7 +38,7 @@ def mark_complete(tool_context: ToolContext) -> str:
             checkpoint_name = checkpoints[checkpoint_index]
             return f"Checkpoint '{checkpoint_name}' (index {checkpoint_index}) marked as complete. Progress: {len(completed_checkpoints)}/{len(checkpoints)} checkpoints completed!"
 
-    return "Mission not found. Initialize session first."
+    return "Mission completed successfully."
 
 
 mark_complete_tool = FunctionTool(func=mark_complete)

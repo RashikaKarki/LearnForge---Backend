@@ -1,5 +1,12 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
 from google.adk.tools import FunctionTool, ToolContext
+from google.genai.types import ThinkingConfig
+
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=0)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 
 def transfer_to_orchestrator(tool_context: ToolContext):
@@ -51,4 +58,5 @@ root_agent = LlmAgent(
         """
     ),
     tools=[transfer_to_orchestrator_tool],
+    planner=planner,
 )

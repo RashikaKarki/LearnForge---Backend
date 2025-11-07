@@ -1,8 +1,14 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
 from google.adk.tools import agent_tool
+from google.genai.types import ThinkingConfig
 
 from app.agents.search_agent.agent import search_agent
 
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=0)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     name="lumina_help_desk",
@@ -52,4 +58,5 @@ root_agent = LlmAgent(
     tools=[
         agent_tool.AgentTool(agent=search_agent),
     ],
+    planner=planner,
 )

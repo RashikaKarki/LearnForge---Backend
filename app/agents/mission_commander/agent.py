@@ -1,5 +1,7 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
 from google.adk.tools import FunctionTool, ToolContext
+from google.genai.types import ThinkingConfig
 
 from .pathfinder.agent import root_agent as pathfinder_agent
 from .utils.fetch_mission import fetch_mission_details
@@ -25,10 +27,13 @@ def create_mission_and_notify(tool_context: ToolContext) -> str:
 start_session_tool = FunctionTool(func=start_session_with_pathfinder)
 create_mission_wrapper_tool = FunctionTool(func=create_mission_and_notify)
 
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=250)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     name="orchestrator",
-    model="gemini-2.5-pro",
+    model="gemini-2.5-flash",
     description=(
         "The Orchestrator manages the learning journey by coordinating Pathfinder "
         "(goal clarification) and mission creation (roadmap generation)."
@@ -95,4 +100,5 @@ root_agent = LlmAgent(
         create_mission_wrapper_tool,
     ],
     sub_agents=[pathfinder_agent],
+    planner=planner,
 )

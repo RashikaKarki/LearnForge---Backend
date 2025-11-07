@@ -1,8 +1,14 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
 
 from .tools.fetch_youtube_videos import fetch_youtube_videos_tool
 from .tools.store_video_selection import store_video_selection_tool
 
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=250)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     model="gemini-2.5-flash",
@@ -93,4 +99,5 @@ root_agent = LlmAgent(
     Your success is measured by your invisibility. Do not interact with the user directly.
     """,
     tools=[fetch_youtube_videos_tool, store_video_selection_tool],
+    planner=planner,
 )

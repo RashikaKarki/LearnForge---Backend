@@ -1,5 +1,11 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
+from google.genai.types import ThinkingConfig
 
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=100)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     model="gemini-2.5-flash",
@@ -143,4 +149,5 @@ root_agent = LlmAgent(
     This output will be returned to the parent agent (Sensei) for presentation to the user.
     """,
     tools=[],
+    planner=planner,
 )

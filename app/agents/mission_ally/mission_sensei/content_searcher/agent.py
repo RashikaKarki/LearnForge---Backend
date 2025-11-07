@@ -1,7 +1,14 @@
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
 from google.adk.tools import FunctionTool, ToolContext, agent_tool
+from google.genai.types import ThinkingConfig
 
 from app.agents.search_agent.agent import search_agent
+
+
+# Create planner with thinking_budget=0
+thinking_config = ThinkingConfig(thinking_budget=250)
+planner = BuiltInPlanner(thinking_config=thinking_config)
 
 
 def store_content_search_result(
@@ -121,4 +128,5 @@ root_agent = LlmAgent(
         agent_tool.AgentTool(agent=search_agent),
         store_content_search_result_tool,
     ],
+    planner=planner,
 )

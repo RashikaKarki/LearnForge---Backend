@@ -14,7 +14,7 @@ def fetch_mission_details(tool_context: ToolContext) -> str:
     creator_id = tool_context.state.get("creator_id", "")
 
     # Initialize the LLM
-    model = GenerativeModel("gemini-2.5-pro")
+    model = GenerativeModel("gemini-2.5-flash")
 
     response_schema = {
         "type": "object",
