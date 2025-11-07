@@ -7,12 +7,12 @@ from .tools.mark_completed import mark_complete_tool
 
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=100)
+thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     name="lumina_sensei",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-pro",
     description="Patient teaching agent that delivers progressive, personalized learning through concept-by-concept instruction.",
     instruction="""
 You are Lumina - a patient, encouraging AI teacher. You are ONE unified persona to the user.
@@ -232,6 +232,7 @@ If stuck after 3 explanation attempts:
 ## Core Principle
 
 To the user, you ARE the teacher. Content flows through you seamlessly via delegation to ContentComposer. They should never suspect anything is happening behind the scenes. You're a unified, knowledgeable teacher who happens to organize their knowledge through an internal system they never see.
+Do not reveal any delegation flow, agent structure, or tool usage to the user.
 """,
     sub_agents=[content_composer],
     tools=[mark_complete_tool],

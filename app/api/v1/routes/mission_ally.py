@@ -144,10 +144,12 @@ class SessionContext:
         self._adk_session = None  # Cached ADK session
         self._initialized = False
 
-    async def initialize(self) -> tuple[dict, bool]:
+    async def initialize(self) -> tuple[dict, bool, bool]:
         """
         Fetch and cache all required data for the session.
-        Returns (initial_state_dict, was_started) where was_started indicates if session was already started.
+        Returns (initial_state_dict, was_started, is_completed) where:
+        - was_started indicates if session was already started
+        - is_completed indicates if mission is already completed
         """
         if self._initialized:
             raise ValueError("SessionContext already initialized")
@@ -205,15 +207,18 @@ class SessionContext:
         except Exception as e:
             raise ValueError(f"Failed to retrieve enrollment session log: {str(e)}") from e
 
-        # Validate session status
-        if self._enrollment_session_log.status == "completed":
-            raise ValueError("Cannot start WebSocket: enrollment session is already completed")
+        # Check if mission is already completed
+        is_completed = self._enrollment_session_log.status == "completed"
 
-        was_started = self._enrollment_session_log.status == "started"
-        if self._enrollment_session_log.status == "created":
-            self.enrollment_session_log_service.mark_session_started(
-                self._enrollment_session_log.id
-            )
+        # If not completed, validate and mark as started if needed
+        if not is_completed:
+            was_started = self._enrollment_session_log.status == "started"
+            if self._enrollment_session_log.status == "created":
+                self.enrollment_session_log_service.mark_session_started(
+                    self._enrollment_session_log.id
+                )
+        else:
+            was_started = False
 
         # Build initial state
         starting_index = _find_starting_checkpoint_index(self._enrolled_mission)
@@ -234,7 +239,7 @@ class SessionContext:
             "video_selection_result": {},
         }
         self._initialized = True
-        return initial_state, was_started
+        return initial_state, was_started, is_completed
 
     async def get_or_create_adk_session(self, session_id: str, initial_state: dict):
         """
@@ -599,30 +604,6 @@ async def _handle_agent_transfer(event, session_id: str, manager: ConnectionMana
     return True
 
 
-async def _send_text_content(event, session_id: str, manager: ConnectionManager):
-    if not hasattr(event, "content") or not event.content or not hasattr(event.content, "parts"):
-        logger.debug(
-            f"[_send_text_content] Event has no content/parts for session {session_id}, skipping"
-        )
-        return
-
-    text_parts = []
-    for part in event.content.parts:
-        if hasattr(part, "text") and part.text:
-            text_parts.append(part.text)
-            await manager.send_message(session_id, AgentMessage(message=part.text))
-
-    if text_parts:
-        logger.debug(
-            f"[_send_text_content] Sent {len(text_parts)} text part(s) to session {session_id}, "
-            f"total_length={sum(len(t) for t in text_parts)}"
-        )
-    else:
-        logger.debug(
-            f"[_send_text_content] No text parts found in event content for session {session_id}"
-        )
-
-
 async def _handle_mission_completion(
     session_id: str,
     context: SessionContext,
@@ -767,13 +748,28 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
                             f"{len(event.content.parts) if hasattr(event.content, 'parts') and event.content.parts else 0} parts"
                         )
                     try:
+                        # Check for agent transfer first
                         transfer_result = await _handle_agent_transfer(event, session_id, manager)
                         if transfer_result == "close":
                             wrapper_transferred = True
                             logger.info(
                                 f"[process_agent_flow] Wrapper transfer detected, will close session {session_id}"
                             )
-                        await _send_text_content(event, session_id, manager)
+
+                        # Send agent's message content to client
+                        if hasattr(event, "author") and event.author != "user":
+                            if hasattr(event, "content") and event.content:
+                                if hasattr(event.content, "parts") and event.content.parts:
+                                    for part in event.content.parts:
+                                        if hasattr(part, "text") and part.text:
+                                            logger.debug(
+                                                f"[process_agent_flow] Sending agent message for session {session_id}, "
+                                                f"message_length={len(part.text)}"
+                                            )
+                                            await manager.send_message(
+                                                session_id, AgentMessage(message=part.text)
+                                            )
+
                     except Exception as event_error:
                         logger.error(
                             f"[process_agent_flow] Error processing event #{event_count} in session {session_id}: {event_error}",
@@ -863,9 +859,10 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
         except Exception as runner_error:
             logger.error(
                 f"[process_agent_flow] Runner error for session {session_id}: {runner_error}, "
-                f"error_type={error_type}",
+                f"error_type={type(runner_error).__name__}",
                 exc_info=True,
             )
+            raise
 
         session_after = await context.refresh_adk_session(session_id)
 
@@ -877,9 +874,32 @@ async def process_agent_flow(session_id: str, context: SessionContext, user_mess
             )
             if session_after and session_after.state:
                 completed_checkpoints = session_after.state.get("completed_checkpoints", [])
+
+                try:
+                    # Sending user the final part if available
+                    if hasattr(event, "author") and event.author != "user":
+                        if hasattr(event, "content") and event.content:
+                            if hasattr(event.content, "parts") and event.content.parts:
+                                for part in event.content.parts:
+                                    if hasattr(part, "text") and part.text:
+                                        if hasattr(part, "text") and part.text:
+                                            logger.debug(
+                                                f"[process_agent_flow] Sending agent message for session {session_id}, "
+                                                f"message_length={len(part.text)}"
+                                            )
+                                            await manager.send_message(
+                                                session_id, AgentMessage(message=part.text)
+                                            )
+                except Exception as final_message_error:
+                    logger.error(
+                        f"[process_agent_flow] Error sending final agent message for session {session_id}: {final_message_error}",
+                        exc_info=True,
+                    )
+
                 await _handle_mission_completion(
                     session_id, context, completed_checkpoints, manager
                 )
+
             # Send processing end notification before returning
             logger.debug(
                 f"[process_agent_flow] Sending agent_processing_end (mission completed) "
@@ -1089,7 +1109,7 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
         # Initialize SessionContext (fetches and caches all required data)
         try:
             context = SessionContext(db, user.id, mission_id, manager.session_service)
-            initial_state, was_started = await context.initialize()
+            initial_state, was_started, is_completed = await context.initialize()
             session_id = context.enrollment_session_log.id
         except ValueError as e:
             await _close_websocket_with_error(websocket, None, e, status.WS_1008_POLICY_VIOLATION)
@@ -1117,6 +1137,39 @@ async def mission_ally_websocket(websocket: WebSocket, mission_id: str):
 
         # Register WebSocket connection
         manager.active_connections[session_id] = websocket
+
+        if is_completed:
+            try:
+                await manager.send_message(
+                    session_id,
+                    ConnectedMessage(message="Connected to Lumina. Ready to start learning!"),
+                )
+            except Exception:
+                pass
+
+            try:
+                historical_messages = await _get_historical_messages(session_id, context)
+                await manager.send_message(session_id, historical_messages)
+            except Exception as e:
+                logger.error(
+                    f"[mission_ally_websocket] Failed to get/send historical messages for completed mission: {e}",
+                    exc_info=True,
+                )
+
+            await manager.send_message(
+                session_id,
+                SessionClosedMessage(message="Congratulations! You've completed the mission!"),
+            )
+            await asyncio.sleep(0.1)
+
+            websocket = manager.active_connections.get(session_id)
+            if websocket:
+                try:
+                    await websocket.close()
+                except Exception:
+                    pass
+            manager.disconnect(session_id)
+            return
 
         # Send initial connection message
         try:

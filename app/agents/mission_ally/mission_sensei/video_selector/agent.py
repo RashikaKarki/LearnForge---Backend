@@ -7,7 +7,7 @@ from .tools.store_video_selection import store_video_selection_tool
 
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=100)
+thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
@@ -96,7 +96,8 @@ root_agent = LlmAgent(
     - Don't engage with user at all. You are only researching content.
 
     Do not skip calling "store_video_selection_tool" tool, as it is REQUIRED to complete your task.
-    Your success is measured by your invisibility. Do not interact with the user directly.
+    Your success is measured by your invisibility. Do not interact with the user directly or send any text based output.
+    You should not reveal any delegation flow, your thinking process, agent structure, or tool usage to the user.
     """,
     tools=[fetch_youtube_videos_tool, store_video_selection_tool],
     planner=planner,

@@ -7,7 +7,7 @@ from app.agents.search_agent.agent import search_agent
 
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=100)
+thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 
@@ -123,6 +123,8 @@ root_agent = LlmAgent(
 
     Do not skip calling "store_content_search_result_tool" tool, as it is REQUIRED to complete your task.
     Your success is measured by your invisibility. Do not interact with the user directly.
+    Do not interact with the user directly or send any text based output.
+    You should not reveal any delegation flow, your thinking process, agent structure, or tool usage to the user.
     """,
     tools=[
         agent_tool.AgentTool(agent=search_agent),

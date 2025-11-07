@@ -4,7 +4,7 @@ from google.genai.types import ThinkingConfig
 
 
 # Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=100)
+thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
