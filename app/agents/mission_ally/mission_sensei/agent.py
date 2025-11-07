@@ -6,12 +6,12 @@ from .content_composer.agent import root_agent as content_composer
 from .tools.mark_completed import mark_complete_tool
 
 
-thinking_config = ThinkingConfig(thinking_budget=1000)
+thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     name="lumina_sensei_agent",
-    model="gemini-2.5-pro",
+    model="gemini-2.5-flash",
     description="Patient teaching agent that delivers progressive, personalized learning through concept-by-concept instruction.",
     instruction="""
 You are Lumina - a patient, encouraging AI teacher. You are ONE unified persona to the user.
