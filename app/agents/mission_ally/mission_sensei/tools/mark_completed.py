@@ -1,4 +1,9 @@
+import logging
+
 from google.adk.tools import FunctionTool, ToolContext
+
+
+logger = logging.getLogger(__name__)
 
 
 def mark_complete(tool_context: ToolContext) -> str:
@@ -11,6 +16,7 @@ def mark_complete(tool_context: ToolContext) -> str:
     Returns:
         Confirmation message
     """
+    logger.info("[mark_complete_tool] Marking checkpoint as complete...")
     checkpoint_index = tool_context.state.get("current_checkpoint_index", -1)
 
     mission_details = tool_context.state.get("mission_details")
@@ -36,8 +42,12 @@ def mark_complete(tool_context: ToolContext) -> str:
             tool_context.state["completed_checkpoints"] = completed_checkpoints
 
             checkpoint_name = checkpoints[checkpoint_index]
+            logger.info(
+                f"[mark_complete_tool] Checkpoint '{checkpoint_name}' (index {checkpoint_index}) marked as complete."
+            )
             return f"Checkpoint '{checkpoint_name}' (index {checkpoint_index}) marked as complete. Progress: {len(completed_checkpoints)}/{len(checkpoints)} checkpoints completed!"
 
+    logger.info("[mark_complete_tool] Mission completed successfully.")
     return "Mission completed successfully."
 
 

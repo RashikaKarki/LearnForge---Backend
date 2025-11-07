@@ -1,12 +1,19 @@
+import logging
+
 from google.adk.tools import FunctionTool, ToolContext
+
+
+logger = logging.getLogger(__name__)
 
 
 def increment_checkpoint(tool_context: ToolContext) -> str:
     """
     Tool to increment the checkpoint in the mission state.
     """
+    logger.info("[increment_checkpoint_tool] Incrementing checkpoint...")
     mission_details = tool_context.state.get("mission_details")
     if not mission_details:
+        logger.error("[increment_checkpoint_tool] Mission details not found in state.")
         return "Error: Mission details not found. Initialize session first."
 
     # Handle both dict and object representations
@@ -21,8 +28,10 @@ def increment_checkpoint(tool_context: ToolContext) -> str:
         elif hasattr(first_item, "byte_size_checkpoints"):
             checkpoints = first_item.byte_size_checkpoints
         else:
+            logger.error("[increment_checkpoint_tool] Mission details format is unrecognized.")
             return "Error: Mission details format is unrecognized."
     else:
+        logger.error("[increment_checkpoint_tool] Mission details missing byte_size_checkpoints.")
         return "Error: Mission details missing byte_size_checkpoints."
 
     current_index = tool_context.state.get("current_checkpoint_index", -1)
@@ -31,10 +40,14 @@ def increment_checkpoint(tool_context: ToolContext) -> str:
         new_index = current_index + 1
         tool_context.state["current_checkpoint_index"] = new_index
         tool_context.state["current_checkpoint_goal"] = checkpoints[new_index]
+        logger.info(
+            f"[increment_checkpoint_tool] Checkpoint incremented to index {new_index}: {checkpoints[new_index]}"
+        )
         return f"Checkpoint incremented to: {checkpoints[new_index]}"
     else:
         tool_context.state["current_checkpoint_index"] = -1
         tool_context.state["current_checkpoint_goal"] = "Ended"
+        logger.info("[increment_checkpoint_tool] All checkpoints completed. Mission ended.")
         return "All checkpoints completed. Mission ended."
 
 
