@@ -1,8 +1,8 @@
 from google.adk.agents import LlmAgent
 from google.adk.tools import FunctionTool, ToolContext
 
-from .mission_curator.agent import root_agent as mission_curator_agent
 from .pathfinder.agent import root_agent as pathfinder_agent
+from .utils.fetch_mission import fetch_mission_details
 
 
 def start_session_with_pathfinder(tool_context: ToolContext) -> str:
@@ -11,15 +11,19 @@ def start_session_with_pathfinder(tool_context: ToolContext) -> str:
     return "Transferred to Pathfinder to begin learning journey."
 
 
-def transfer_to_mission_curator(tool_context: ToolContext) -> str:
-    """Transfers to Mission Curator (which handles both Curator and Weaver sequentially)."""
-    tool_context.actions.transfer_to_agent = mission_curator_agent.name
-    return "Transferred to Mission Curator for roadmap creation and content generation."
+def create_mission_and_notify(tool_context: ToolContext) -> str:
+    """Creates the mission and notifies the user."""
+    # Call the mission creation tool
+    mission_details = fetch_mission_details(tool_context)
+
+    tool_context.state["mission_create"] = mission_details
+
+    return f"✅ Created {mission_details['title']}! Your personalized learning roadmap is ready."
 
 
 # Define tools
 start_session_tool = FunctionTool(func=start_session_with_pathfinder)
-transfer_to_mission_curator_tool = FunctionTool(func=transfer_to_mission_curator)
+create_mission_wrapper_tool = FunctionTool(func=create_mission_and_notify)
 
 
 root_agent = LlmAgent(
@@ -27,8 +31,7 @@ root_agent = LlmAgent(
     model="gemini-2.5-pro",
     description=(
         "The Orchestrator manages the learning journey by coordinating Pathfinder "
-        "(goal clarification) and Mission Curator (roadmap + content generation). "
-        "Mission Curator automatically handles both curator and weaver phases sequentially."
+        "(goal clarification) and mission creation (roadmap generation)."
     ),
     instruction=(
         """
@@ -52,45 +55,44 @@ root_agent = LlmAgent(
            - A course outline or learning path is presented and acknowledged
 
            IMMEDIATELY when detected:
-           - Call `transfer_to_mission_curator` tool WITHOUT asking the user
-           - Do NOT summarize or comment - just transfer
-           - Mission Curator will automatically handle BOTH curator and weaver phases
+           - Call `create_mission_and_notify` tool WITHOUT asking the user
+           - Do NOT summarize or comment - just create the mission
+           - The tool will handle mission creation and user notification
 
-        3. MISSION CURATOR PHASE
-           - Mission Curator will create the learning roadmap
+        3. MISSION CREATION PHASE
+           - Mission will be created automatically via the tool
+           - User will be notified when complete
 
         TRANSFER RULES (CRITICAL)
 
         NEVER DO THIS:
-        - Ask "Would you like me to transfer to [agent]?"
-        - Summarize what the next agent will do
+        - Ask "Would you like me to create your mission?"
+        - Summarize what will happen next
         - Wait for explicit user permission after completion signals
         - Have conversations with the user
         - Create any learning content yourself
-        - Try to manually manage curator → weaver transition (Mission Curator does this)
 
         ALWAYS DO THIS:
         - Detect Pathfinder completion signals automatically
-        - Transfer IMMEDIATELY upon detection
-        - Let each agent handle their own conversations
-        - Stay silent during agent operations
-        - Only intervene if explicitly asked to switch agents
-        - Trust Mission Curator to handle the curator → weaver flow
+        - Call mission creation tool IMMEDIATELY upon detection
+        - Let Pathfinder handle all conversations
+        - Stay silent during Pathfinder operations
+        - Only intervene if explicitly asked to restart or change agents
 
-        COMPLETION SIGNAL
+        COMPLETION SIGNALS
 
-        When Pathfinder completes immediately transfer to Mission Curator when you see any of these signals:
-        - Immediately after user confirms the learning goal is correct
-        - When Pathfinder has summarized the learning path and user agrees
+        Immediately call `create_mission_and_notify` when you see:
+        - User confirms the learning goal is correct ("yes", "correct", "looks good", "that's right")
+        - Pathfinder has summarized the learning path and user agrees
 
         REMEMBER: You are INVISIBLE to the user. Your job is to ensure smooth, automatic
-        transitions. The user should feel like they're having one continuous conversation
-        across all agents, not talking to a coordinator.
+        transitions. The user should feel like they're having one continuous conversation,
+        not talking to a coordinator.
         """
     ),
     tools=[
         start_session_tool,
-        transfer_to_mission_curator_tool,
+        create_mission_wrapper_tool,
     ],
-    sub_agents=[pathfinder_agent, mission_curator_agent],
+    sub_agents=[pathfinder_agent],
 )
