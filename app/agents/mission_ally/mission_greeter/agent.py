@@ -4,8 +4,8 @@ from google.adk.tools import FunctionTool, ToolContext
 from google.genai.types import ThinkingConfig
 
 
-# Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=0)
+# Create planner with thinking_budget=128
+thinking_config = ThinkingConfig(thinking_budget=128)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 
@@ -24,7 +24,7 @@ def transfer_to_orchestrator(tool_context: ToolContext):
 transfer_to_orchestrator_tool = FunctionTool(func=transfer_to_orchestrator)
 
 root_agent = LlmAgent(
-    name="lumina_greeter",
+    name="lumina_greeter_agent",
     model="gemini-2.5-flash",
     description=(
         "Agent that welcomes users to their learning mission and sets the tone for the experience."

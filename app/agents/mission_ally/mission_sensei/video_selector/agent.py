@@ -6,13 +6,13 @@ from .tools.fetch_youtube_videos import fetch_youtube_videos_tool
 from .tools.store_video_selection import store_video_selection_tool
 
 
-# Create planner with thinking_budget=0
+# Create planner with thinking_budget=128
 thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     model="gemini-2.5-flash",
-    name="VideoSelector",
+    name="lumina_video_selector_agent",
     instruction="""
     You are an intelligent video curator specializing in finding educational YouTube videos.
 

@@ -6,12 +6,12 @@ from google.genai.types import ThinkingConfig
 from app.agents.search_agent.agent import search_agent
 
 
-# Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=0)
+# Create planner with thinking_budget=128
+thinking_config = ThinkingConfig(thinking_budget=128)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
-    name="lumina_help_desk",
+    name="lumina_help_desk_agent",
     model="gemini-2.5-flash",
     description=("Agent that handles ad-hoc questions outside the current mission context."),
     instruction=(

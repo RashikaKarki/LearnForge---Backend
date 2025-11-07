@@ -5,12 +5,12 @@ from google.genai.types import ThinkingConfig
 from .tools.update_checkpoint_goal import update_checkpoint_goal_tool
 
 
-# Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=0)
+# Create planner with thinking_budget=128
+thinking_config = ThinkingConfig(thinking_budget=128)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
-    name="lumina_flow_briefer",
+    name="lumina_flow_briefer_agent",
     model="gemini-2.5-flash",
     description="Agent that provides checkpoint briefings and confirms learning objectives before teaching begins.",
     instruction="""

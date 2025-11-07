@@ -6,7 +6,7 @@ from ..video_selector.agent import root_agent as video_selector
 
 
 root_agent = SequentialAgent(
-    name="ContentComposer",
+    name="lumina_content_composer_agent",
     description="Composes personalized educational content through search, video selection, and formatting",
     sub_agents=[
         content_searcher,

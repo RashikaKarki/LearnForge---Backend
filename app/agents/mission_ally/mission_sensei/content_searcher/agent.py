@@ -6,7 +6,7 @@ from google.genai.types import ThinkingConfig
 from app.agents.search_agent.agent import search_agent
 
 
-# Create planner with thinking_budget=0
+# Create planner with thinking_budget=128
 thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
@@ -43,7 +43,7 @@ store_content_search_result_tool = FunctionTool(func=store_content_search_result
 
 root_agent = LlmAgent(
     model="gemini-2.5-flash",
-    name="ContentSearcher",
+    name="lumina_content_searcher_agent",
     instruction="""
     You are a content researcher specializing in finding high-quality educational text content.
 

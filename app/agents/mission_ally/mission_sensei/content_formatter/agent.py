@@ -3,21 +3,21 @@ from google.adk.planners import BuiltInPlanner
 from google.genai.types import ThinkingConfig
 
 
-# Create planner with thinking_budget=0
+# Create planner with thinking_budget=128
 thinking_config = ThinkingConfig(thinking_budget=200)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 root_agent = LlmAgent(
     model="gemini-2.5-flash",
-    name="ContentFormatter",
+    name="lumina_content_formatter_agent",
     output_key="composed_content",
     instruction="""
     You are a learning content composer that creates personalized educational content.
 
     ## Input Data
     - user_profile: {user_profile}
-    - content_search_result: {content_search_result} - Content from ContentSearcher
-    - video_selection_result: {video_selection_result} - Video from VideoSelector
+    - content_search_result: {content_search_result} - Content from lumina_content_searcher_agent
+    - video_selection_result: {video_selection_result} - Video from lumina_video_selector_agent
 
     Refer to past conversation and other state as needed.
 

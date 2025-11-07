@@ -4,8 +4,8 @@ from google.adk.tools import google_search
 from google.genai.types import ThinkingConfig
 
 
-# Create planner with thinking_budget=0
-thinking_config = ThinkingConfig(thinking_budget=0)
+# Create planner with thinking_budget=128
+thinking_config = ThinkingConfig(thinking_budget=128)
 planner = BuiltInPlanner(thinking_config=thinking_config)
 
 search_agent = LlmAgent(
