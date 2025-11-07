@@ -6,8 +6,11 @@ import re
 from fastapi import Request
 from firebase_admin import auth
 from firebase_admin.auth import (
+    ExpiredIdTokenError,
     ExpiredSessionCookieError,
+    InvalidIdTokenError,
     InvalidSessionCookieError,
+    RevokedIdTokenError,
     RevokedSessionCookieError,
 )
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -37,47 +40,91 @@ class FirebaseSessionMiddleware(BaseHTTPMiddleware):
         ):
             return await call_next(request)
 
-        session_cookie = request.cookies.get(self.COOKIE_NAME)
-        if not session_cookie:
+        # Try to get token from cookie or Authorization header
+        token = request.cookies.get(self.COOKIE_NAME)
+        if not token:
+            # Check Authorization header
+            auth_header = request.headers.get("authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header.replace("Bearer ", "")
+
+        if not token:
             return JSONResponse(
                 status_code=401,
                 content={
-                    "detail": "Missing session cookie",
-                    "error_code": "SESSION_MISSING",
+                    "detail": "Missing authentication token. Provide either a session cookie or Authorization header with Bearer token",
+                    "error_code": "AUTH_MISSING",
                 },
             )
 
         try:
-            # Verify the session cookie. In this case, additional check for revocation is done.
-            decoded_claims = auth.verify_session_cookie(session_cookie, check_revoked=True)
-
-            user_create_object = UserCreate(
-                firebase_uid=decoded_claims["uid"],
-                email=decoded_claims.get("email"),
-                name=decoded_claims.get("name"),
-                picture=decoded_claims.get("picture"),
+            decoded_claims = auth.verify_session_cookie(token, check_revoked=True)
+        except (
+            ExpiredSessionCookieError,
+            RevokedSessionCookieError,
+            InvalidSessionCookieError,
+        ) as session_error:
+            error_str = str(session_error).lower()
+            is_issuer_error = (
+                "iss" in error_str
+                and "issuer" in error_str
+                and (
+                    "securetoken.google.com" in error_str
+                    or "session.firebase.google.com" in error_str
+                )
             )
 
-            user_service = UserService(request.app.state.db)
-            user: User = user_service.get_or_create_user(user_create_object)
-
-            request.state.current_user = user
-
-        except ExpiredSessionCookieError:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Session expired", "error_code": "SESSION_EXPIRED"},
-            )
-        except RevokedSessionCookieError:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Session revoked", "error_code": "SESSION_REVOKED"},
-            )
-        except InvalidSessionCookieError:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Invalid session", "error_code": "SESSION_INVALID"},
-            )
+            if is_issuer_error:
+                try:
+                    decoded_claims = auth.verify_id_token(token, check_revoked=True)
+                except ExpiredIdTokenError:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "ID token expired", "error_code": "TOKEN_EXPIRED"},
+                    )
+                except RevokedIdTokenError:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "ID token revoked", "error_code": "TOKEN_REVOKED"},
+                    )
+                except InvalidIdTokenError:
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Invalid ID token", "error_code": "TOKEN_INVALID"},
+                    )
+                except Exception as id_token_error:
+                    return JSONResponse(
+                        status_code=401,
+                        content={
+                            "detail": f"Invalid authentication token: {str(id_token_error)}",
+                            "error_code": "TOKEN_INVALID",
+                        },
+                    )
+            else:
+                # Re-raise session cookie errors
+                if isinstance(session_error, ExpiredSessionCookieError):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Session expired", "error_code": "SESSION_EXPIRED"},
+                    )
+                elif isinstance(session_error, RevokedSessionCookieError):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Session revoked", "error_code": "SESSION_REVOKED"},
+                    )
+                elif isinstance(session_error, InvalidSessionCookieError):
+                    return JSONResponse(
+                        status_code=401,
+                        content={"detail": "Invalid session", "error_code": "SESSION_INVALID"},
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=401,
+                        content={
+                            "detail": f"Invalid authentication token: {str(session_error)}",
+                            "error_code": "AUTH_INVALID",
+                        },
+                    )
         except Exception as e:
             return JSONResponse(
                 status_code=500,
@@ -86,6 +133,19 @@ class FirebaseSessionMiddleware(BaseHTTPMiddleware):
                     "error_code": "INTERNAL_ERROR",
                 },
             )
+
+        # Create user from decoded claims
+        user_create_object = UserCreate(
+            firebase_uid=decoded_claims["uid"],
+            email=decoded_claims.get("email"),
+            name=decoded_claims.get("name"),
+            picture=decoded_claims.get("picture"),
+        )
+
+        user_service = UserService(request.app.state.db)
+        user: User = user_service.get_or_create_user(user_create_object)
+
+        request.state.current_user = user
 
         return await call_next(request)
 
