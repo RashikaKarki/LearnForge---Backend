@@ -5,16 +5,46 @@
 
 ## Introduction
 
-**LearnForge** is an AI-powered educational backend that designs and orchestrates deeply personalized learning experiences. Built with the **Agent Development Kit (ADK)** and powered by a **multi-agent architecture**, LearnForge adapts to each learner's goals, existing knowledge, and preferred depth of understanding.
+**LearnForge** is an intelligent, AI-driven learning platform that transforms how people learn by providing deeply personalized, adaptive educational experiences. Built entirely on Google Cloud infrastructure and powered by Google's Agent Development Kit (ADK) with Gemini 2.5 Flash, LearnForge guides learners from vague interests to mastery through two sophisticated AI agents: **Polaris** and **Lumina**.
 
-It intelligently generates **missions**, **content**, and **evaluations** — guiding users through an adaptive journey toward true mastery.
+LearnForge doesn't just deliver content—it creates a complete learning journey. The system understands each learner's goals, experience level, and preferred learning style, then dynamically generates structured learning missions, delivers personalized content, and adapts in real-time to ensure true comprehension and mastery.
+
+## System Architecture
+
+![LearnForge System Architecture](docs/architecture/architecture.png)
 
 ## Core Principles
 
 * **Personalization** – Learning paths are dynamically tailored to the learner's objectives, desired depth, and prior experience.
-* **Byte-Sized Learning** – Every concept is delivered as a focused, digestible *mission* composed of smaller actionable *steps*.
+* **Byte-Sized Learning** – Every concept is delivered as a focused, digestible *mission* composed of smaller actionable *checkpoints*.
 * **Adaptive Reinforcement** – Continuous assessments and feedback ensure concept mastery through reinforcement and iteration.
 * **Conversational Interface** – Learners interact naturally with AI agents that understand, guide, and support their progress.
+
+## Agent Architecture
+
+LearnForge uses two sophisticated AI agents:
+
+### Polaris: The Pathfinder
+
+![Polaris Architecture](docs/architecture/polaris_orchestrator.png)
+
+- **Orchestrator Agent**: Manages agent transitions and coordinates mission creation flow
+- **Pathfinder Agent (Polaris)**: Transforms vague learning interests into precise, actionable learning goals using Google Search for research-backed questions
+- **Mission Curator Agent**: Converts collected data into structured mission schema with checkpoints and learning goals
+- **Session Storage**: InMemorySessionService for ephemeral session storage
+
+### Lumina: The Learning Companion
+
+![Lumina Architecture](docs/architecture/lumina_architecture.png)
+
+- **Lumina Orchestrator**: Coordinates learning journey through sequential checkpoints
+- **Greeter Agent**: Provides initial welcome and mission introduction
+- **Flow Briefer Agent**: Briefs user on upcoming checkpoint and confirms learning objectives
+- **Sensei Agent**: Interactive teaching agent that presents content and evaluates understanding
+- **Content Composer Agent**: Orchestrates content creation pipeline with Content Searcher, Video Selector (YouTube v3 API), and Content Formatter
+- **Help Desk Agent**: Handles off-topic questions during missions using Google Search
+- **Wrapper Agent**: Provides final mission wrap-up and celebration
+- **Session Storage**: DatabaseSessionService with Cloud SQL (PostgreSQL) for persistent session storage
 
 ## Prerequisites
 
@@ -75,9 +105,13 @@ Once running, visit:
 
 ### WebSocket Endpoints
 
-- **Mission Commander**: `ws://localhost:8080/api/v1/mission-commander/ws`
+- **Mission Commander (Polaris)**: `ws://localhost:8080/api/v1/mission-commander/ws`
   - Real-time AI agent conversation for creating personalized learning missions
   - Complete integration guide: [Mission Commander WebSocket API](docs/MISSION_COMMANDER_WEBSOCKET_API.md)
+
+- **Mission Ally (Lumina)**: `ws://localhost:8080/api/v1/mission-ally/ws`
+  - Real-time AI agent conversation for interactive learning through checkpoints
+  - Complete integration guide: [Mission Ally WebSocket API](docs/MISSION_ALLY_WEBSOCKET_API.md)
 
 ## CI/CD Pipeline
 
@@ -112,8 +146,14 @@ These are used by your **running application** on Cloud Run. Create them in [Sec
 |------------|-------------|---------------|
 | `firebase-service-account-key` | Firebase service account JSON | Upload `firebase_key.json` content |
 | `google-api-key` | Google API key for Gemini/GenAI | Paste API key value |
+| `youtube-api-key` | YouTube Data API v3 key | Paste API key value |
 | `allow-origins` | CORS allowed origins (comma-separated) | e.g., `https://myapp.com,https://app.myapp.com` ⚠️ **Never use `*` in production!** |
 | `firestore-database-id` | Firestore database ID | e.g., `learnforge-staging` or `(default)` |
+| `database-url` | Cloud SQL connection string (optional, if not using connector) | `postgresql://user:pass@host/db` |
+| `instance-connection-name` | Cloud SQL instance connection name | `project:region:instance` |
+| `db-user` | Cloud SQL database user | Database username |
+| `db-password` | Cloud SQL database password | Database password |
+| `db-name` | Cloud SQL database name | Database name |
 
 **Important:** Grant Cloud Run service account access to these secrets.
 
@@ -152,13 +192,29 @@ git push origin main
 
 ## Tech Stack
 
+### Backend
 * **Python 3.11** - Backend runtime
 * **FastAPI** - Web framework
-* **Agent Development Kit (ADK)** - Multi-agent orchestration
-* **FireBase** - Authentication
-* **Google Firestore** - Database
+* **Agent Development Kit (ADK)** - Multi-agent orchestration framework
+* **Gemini 2.5 Flash** - Large language model for agent intelligence
+
+### Google Cloud Platform Services
+* **Cloud Run** - Serverless container hosting for frontend and backend
+* **Artifact Registry** - Container image storage and versioning
+* **Cloud SQL (PostgreSQL)** - Managed database for session persistence (Lumina agent)
+* **Cloud SQL Connector** - Secure database connection management
+* **Firebase Authentication** - OAuth Google authentication
+* **Firestore** - NoSQL database for user and mission data
+* **Cloud Logging** - Centralized application logging
+* **Cloud Trace** - Distributed tracing and performance monitoring
+* **Secret Manager** - Secure credential storage
+
+### External APIs
+* **YouTube Data API v3** - Educational video search and curation
+* **Google Search API** - Research-augmented content discovery
+
+### Infrastructure
 * **Docker** - Containerization
-* **Google Cloud Run** - Production deployment
 
 ## Documentation
 
